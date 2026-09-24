@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Mantra AI — Patient Flywheel System</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body,#root{height:100%;background:#07101A;font-family:'Plus Jakarta Sans',sans-serif;color:#F0F6FF;}
+::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#1A2E42;border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+const BOOKING="https://calendly.com/ankur824/30min";
+const C={
+  bg:"#07101A",bg2:"#0B1825",card:"#0F2035",card2:"#122440",
+  border:"rgba(45,212,200,0.15)",borderB:"rgba(45,212,200,0.08)",
+  teal:"#2DD4C8",blue:"#1565C0",
+  grad:"linear-gradient(135deg,#2DD4C8,#1E9BBF,#1565C0)",
+  gradH:"linear-gradient(90deg,#2DD4C8,#1565C0)",
+  white:"#F0F6FF",muted:"#4A6580",dim:"#1A2E42",
+  green:"#22C55E",red:"#EF4444",amber:"#F59E0B",purple:"#8B5CF6",
+};
+const css=`
+.app{display:flex;height:100vh;overflow:hidden;}
+.sidebar{width:220px;flex-shrink:0;background:${C.bg2};border-right:1px solid ${C.borderB};display:flex;flex-direction:column;overflow-y:auto;}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{height:52px;background:${C.bg2};border-bottom:1px solid ${C.borderB};display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;}
+.content{flex:1;overflow-y:auto;padding:20px;}
+.sb-logo{display:flex;align-items:center;gap:9px;padding:16px 14px 10px;border-bottom:1px solid ${C.borderB};}
+.sb-logoname{font-size:13px;font-weight:800;letter-spacing:1px;background:${C.gradH};-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sb-section{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.muted};padding:14px 14px 6px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;transition:all 0.15s;font-size:12px;font-weight:500;color:${C.muted};border-left:2px solid transparent;}
+.sb-item:hover{background:rgba(45,212,200,0.05);color:${C.white};}
+.sb-item.active{background:rgba(45,212,200,0.08);color:${C.white};border-left-color:${C.teal};}
+.sb-badge{margin-left:auto;font-size:9px;font-weight:700;background:rgba(239,68,68,0.2);color:#fca5a5;padding:1px 5px;border-radius:4px;}
+.tb-dot{width:7px;height:7px;border-radius:50%;background:#22C55E;animation:pd 2s infinite;}
+@keyframes pd{0%,100%{opacity:1}50%{opacity:0.4}}
+.tb-cta{display:flex;align-items:center;gap:5px;background:${C.grad};color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.card{background:${C.card};border:1px solid ${C.border};border-radius:12px;overflow:hidden;}
+.card-hdr{padding:11px 16px;border-bottom:1px solid ${C.borderB};display:flex;align-items:center;justify-content:space-between;background:rgba(45,212,200,0.03);}
+.card-title{font-size:11px;font-weight:700;color:${C.white};display:flex;align-items:center;gap:6px;}
+.card-body{padding:14px 16px;}
+.section-title{font-size:18px;font-weight:800;margin-bottom:4px;letter-spacing:-0.3px;}
+.section-sub{font-size:12px;color:${C.muted};margin-bottom:18px;}
+.metric{background:${C.card};border:1px solid ${C.border};border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+.metric::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:${C.grad};}
+.metric-val{font-family:'DM Mono',monospace;font-size:26px;font-weight:500;line-height:1;letter-spacing:-1px;margin-bottom:4px;}
+.metric-lbl{font-size:10px;color:${C.muted};font-weight:500;}
+.metric-sub{font-size:10px;margin-top:6px;font-weight:600;color:#22C55E;}
+.plist{display:flex;flex-direction:column;}
+.pitem{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:all 0.15s;}
+.pitem:hover{background:rgba(45,212,200,0.04);}
+.pitem.sel{background:rgba(45,212,200,0.08);border-left:2px solid ${C.teal};}
+.pav{width:30px;height:30px;border-radius:50%;background:${C.dim};border:1px solid ${C.border};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${C.teal};flex-shrink:0;}
+.pinfo{flex:1;min-width:0;}
+.pname{font-size:11px;font-weight:600;}
+.psub{font-size:9px;color:${C.muted};margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rbadge{font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;}
+.wfield{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:7px;padding:9px;}
+.wfl{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${C.muted};margin-bottom:3px;}
+.wfv{font-size:11px;font-weight:600;}
+.wgrid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px;}
+.ai-box{background:rgba(45,212,200,0.04);border:1px solid rgba(45,212,200,0.15);border-radius:9px;padding:14px;font-family:'DM Mono',monospace;font-size:9.5px;line-height:1.8;color:#94B4C8;min-height:100px;white-space:pre-wrap;word-break:break-word;}
+.cur{display:inline-block;width:1.5px;height:10px;background:${C.teal};margin-left:1px;vertical-align:middle;animation:blink 1s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.run-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:${C.grad};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(45,212,200,0.25);font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.2s;}
+.run-btn:hover:not(:disabled){transform:translateY(-1px);}
+.run-btn:disabled{opacity:0.6;cursor:not-allowed;}
+.mspin{width:10px;height:10px;border:1.5px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:sp 0.7s linear infinite;display:inline-block;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ch-row{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;}
+.ch-btn{padding:4px 10px;border-radius:6px;border:1px solid ${C.border};font-size:9px;font-weight:600;color:${C.muted};background:transparent;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;}
+.ch-btn.act{background:rgba(45,212,200,0.1);border-color:rgba(45,212,200,0.4);color:${C.teal};}
+.prog-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.prog-lbl{font-size:8px;color:${C.muted};width:65px;}
+.prog-track{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-teal{background:${C.gradH};}
+.pf-amber{background:linear-gradient(90deg,#F59E0B,#d97706);}
+.prog-pct{font-family:'DM Mono',monospace;font-size:8px;color:${C.muted};width:28px;text-align:right;}
+.two-panel{display:grid;grid-template-columns:210px 1fr;gap:14px;}
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${C.muted};padding:8px 12px;border-bottom:1px solid ${C.borderB};text-align:left;}
+.tbl td{font-size:11px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.04);}
+.tbl tr:hover td{background:rgba(45,212,200,0.02);}
+.chip{display:inline-flex;align-items:center;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:500;background:rgba(45,212,200,0.08);border:1px solid rgba(45,212,200,0.2);border-radius:20px;padding:3px 10px;color:${C.teal};}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:${C.muted};text-align:center;gap:8px;min-height:180px;}
+.fade-in{animation:fi 0.35s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.act-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.act-item:last-child{border-bottom:none;}
+.revenue-bar{height:110px;display:flex;align-items:flex-end;gap:6px;padding-top:8px;}
+.rev-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.rev-bar{width:100%;border-radius:4px 4px 0 0;background:${C.gradH};transition:height 0.8s ease;}
+.rev-lbl{font-size:8px;color:${C.muted};}
+.consent-banner{background:rgba(45,212,200,0.06);border:1px solid rgba(45,212,200,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:11px;color:${C.muted};display:flex;align-items:center;gap:10px;}
+`;
+
+// ── SVG Logo ──
+function Logo({size=32}){
+  const s=size;
+  return React.createElement('svg',{width:s,height:s,viewBox:"0 0 100 100",fill:"none"},
+    React.createElement('defs',null,
+      React.createElement('linearGradient',{id:`lg${s}`,x1:"0%",y1:"0%",x2:"0%",y2:"100%"},
+        React.createElement('stop',{offset:"0%",stopColor:"#2DD4C8"}),
+        React.createElement('stop',{offset:"100%",stopColor:"#1565C0"})
+      )
+    ),
+    React.createElement('g',{transform:"translate(50,54)"},
+      React.createElement('path',{d:`M0 22 C-28 10 -38 -8 -18 -20 L0 4Z`,stroke:`url(#lg${s})`,strokeWidth:"4.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"}),
+      React.createElement('path',{d:`M0 22 C28 10 38 -8 18 -20 L0 4Z`,stroke:`url(#lg${s})`,strokeWidth:"4.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"}),
+      React.createElement('line',{x1:"0",y1:"4",x2:"0",y2:"22",stroke:`url(#lg${s})`,strokeWidth:"4.5",strokeLinecap:"round"}),
+      React.createElement('line',{x1:"0",y1:"-20",x2:"0",y2:"-44",stroke:`url(#lg${s})`,strokeWidth:"4",strokeLinecap:"round"}),
+      React.createElement('circle',{cx:"0",cy:"-44",r:"7",stroke:`url(#lg${s})`,strokeWidth:"3.8",fill:"none"}),
+      React.createElement('circle',{cx:"0",cy:"-44",r:"2.5",fill:"#2DD4C8"}),
+      React.createElement('line',{x1:"-16",y1:"-32",x2:"0",y2:"-32",stroke:`url(#lg${s})`,strokeWidth:"3.5",strokeLinecap:"round"}),
+      React.createElement('circle',{cx:"-16",cy:"-32",r:"5",stroke:`url(#lg${s})`,strokeWidth:"3.5",fill:"none"}),
+      React.createElement('circle',{cx:"-16",cy:"-32",r:"1.8",fill:"#2DD4C8"}),
+      React.createElement('line',{x1:"16",y1:"-32",x2:"0",y2:"-32",stroke:`url(#lg${s})`,strokeWidth:"3.5",strokeLinecap:"round"}),
+      React.createElement('circle',{cx:"16",cy:"-32",r:"5",stroke:`url(#lg${s})`,strokeWidth:"3.5",fill:"none"}),
+      React.createElement('circle',{cx:"16",cy:"-32",r:"1.8",fill:"#1E9BBF"}),
+      React.createElement('path',{d:`M-18 -20 L0 4 L18 -20`,stroke:`url(#lg${s})`,strokeWidth:"4.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})
+    )
+  );
+}
+
+// ── Data ──
+const DORMANT=[
+  {id:1,av:"MS",name:"Maria Santos",last:"14 months ago",svc:"Botox + Fillers",spend:"$2,400",risk:"high",note:"Requested cheek filler refill at last visit. Never rebooked."},
+  {id:2,av:"JP",name:"Jennifer Park",last:"9 months ago",svc:"Teeth Whitening",spend:"$680",risk:"high",note:"Completed whitening series. Due for maintenance."},
+  {id:3,av:"DC",name:"David Chen",last:"11 months ago",svc:"IV Therapy",spend:"$1,200",risk:"med",note:"Monthly IV drip patient — stopped after relocation."},
+  {id:4,av:"AW",name:"Aisha Williams",last:"7 months ago",svc:"Laser Hair Removal",spend:"$3,100",risk:"med",note:"Completed 4 of 6 recommended sessions."},
+  {id:5,av:"RN",name:"Robert Nguyen",last:"18 months ago",svc:"Annual Physical",spend:"$340",risk:"low",note:"Due for follow-up labs. Requested reminder."},
+];
+const NOSHOWS=[
+  {id:1,av:"MJ",name:"Marcus Johnson",appt:"Today 4:30 PM",svc:"Root Canal",val:"$1,800",risk:"high",history:"1× Previous",source:"Google Search"},
+  {id:2,av:"TB",name:"Taylor Brooks",appt:"Tomorrow 2:00 PM",svc:"Lip Filler Consult",val:"$450",risk:"high",history:"2× Previous",source:"Instagram Ad"},
+  {id:3,av:"SR",name:"Sofia Ramirez",appt:"Tomorrow 10:00 AM",svc:"Botox 40u",val:"$520",risk:"med",history:"No history",source:"Referral"},
+  {id:4,av:"KO",name:"Kevin O'Brien",appt:"Friday 1:00 PM",svc:"Dental Crown Prep",val:"$2,200",risk:"med",history:"No history",source:"Website"},
+  {id:5,av:"PP",name:"Priya Patel",appt:"Monday 9:00 AM",svc:"Skin Peel",val:"$280",risk:"low",history:"No history",source:"Yelp"},
+];
+const TREATMENTS=[
+  {id:1,av:"CL",name:"Christine Lee",plan:"6-Session Laser Series",done:2,total:6,val:"$2,400",risk:"high",last:"5 months ago"},
+  {id:2,av:"AM",name:"Anthony Moore",plan:"3-Cavity Treatment Plan",done:1,total:3,val:"$3,600",risk:"high",last:"4 months ago"},
+  {id:3,av:"LO",name:"Lena Okafor",plan:"Hormone Panel + Follow-ups",done:1,total:4,val:"$1,800",risk:"med",last:"3 months ago"},
+  {id:4,av:"JT",name:"James Thornton",plan:"Invisalign 18-mo Plan",done:6,total:18,val:"$5,400",risk:"med",last:"2 months ago"},
+  {id:5,av:"MZ",name:"Mei Zhou",plan:"Chemical Peel Series (4)",done:3,total:4,val:"$960",risk:"low",last:"6 weeks ago"},
+];
+const CLAIMS=[
+  {id:1,pt:"Marcus Johnson",svc:"Root Canal",amount:"$1,800",payer:"Aetna",status:"denied",reason:"Missing pre-auth",days:12},
+  {id:2,pt:"Sofia Ramirez",svc:"Botox 40u",amount:"$520",payer:"BlueCross",status:"pending",reason:"Under review",days:5},
+  {id:3,pt:"Christine Lee",svc:"Laser Session #2",amount:"$400",payer:"Self-Pay",status:"unpaid",reason:"No payment on file",days:45},
+  {id:4,pt:"Jennifer Park",svc:"Whitening Series",amount:"$680",payer:"Cigna",status:"approved",reason:"Approved",days:3},
+  {id:5,pt:"Kevin O'Brien",svc:"Crown Prep",amount:"$2,200",payer:"Delta Dental",status:"denied",reason:"Code mismatch D2710",days:8},
+];
+
+function riskBg(r){return r==="high"?"rgba(239,68,68,0.15)":r==="med"?"rgba(245,158,11,0.15)":"rgba(34,197,94,0.15)";}
+function riskColor(r){return r==="high"?"#fca5a5":r==="med"?"#fcd34d":"#86efac";}
+function statusBg(s){return s==="denied"?"rgba(239,68,68,0.15)":s==="pending"?"rgba(245,158,11,0.15)":s==="approved"?"rgba(34,197,94,0.15)":"rgba(251,146,60,0.15)";}
+function statusColor(s){return s==="denied"?"#fca5a5":s==="pending"?"#fcd34d":s==="approved"?"#86efac":"#fb923c";}
+
+// ── AI Hook — /api/chat (Vercel serverless proxy) ──
+function useAI(){
+  const [ready]=useState(true);
+  const run=useCallback(async(prompt,onChunk)=>{
+    const res=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt})
+    });
+    if(!res.ok) throw new Error('API error '+res.status);
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+    while(true){
+      const{done,value}=await reader.read();
+      if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');
+      buf=lines.pop()||'';
+      for(const line of lines){
+        if(line.startsWith('data: ')){
+          const d=line.slice(6).trim();
+          if(d==='[DONE]') continue;
+          try{const p=JSON.parse(d);const t=p?.delta?.text||'';if(t)onChunk(t);}catch{}
+        }
+      }
+    }
+  },[]);
+  return {ready,run};
+}
+
+// ── Patient List ──
+function PList({patients,selId,onSel,title,count}){
+  return React.createElement('div',{className:"card"},
+    React.createElement('div',{className:"card-hdr"},
+      React.createElement('span',{className:"card-title"},title),
+      React.createElement('span',{style:{fontSize:9,color:C.muted}},count)
+    ),
+    React.createElement('div',{className:"plist"},
+      patients.map(p=>React.createElement('div',{
+        key:p.id,
+        className:`pitem${p.id===selId?" sel":""}`,
+        onClick:()=>onSel(p.id)
+      },
+        React.createElement('div',{className:"pav"},p.av),
+        React.createElement('div',{className:"pinfo"},
+          React.createElement('div',{className:"pname"},p.name),
+          React.createElement('div',{className:"psub"},p.svc||p.appt||p.plan)
+        ),
+        React.createElement('div',{className:"rbadge",style:{background:riskBg(p.risk),color:riskColor(p.risk)}},p.risk?.toUpperCase())
+      ))
+    )
+  );
+}
+
+// ── Agent Panel ──
+function AgentPanel({patients,selId,onSel,listTitle,listCount,renderProfile,buildPrompt,outputTitle}){
+  const {run,ready}=useAI();
+  const [out,setOut]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [ran,setRan]=useState(false);
+  const [ch,setCh]=useState("SMS");
+  const sel=patients.find(p=>p.id===selId);
+
+  useEffect(()=>{setOut("");setRan(false);},[selId,ch]);
+
+  async function go(){
+    if(!sel||loading) return;
+    setLoading(true);setRan(true);setOut("");
+    try{
+      await run(buildPrompt(sel,ch),delta=>setOut(p=>p+delta));
+    }catch(e){setOut("⚠️ "+e.message);}
+    finally{setLoading(false);}
+  }
+
+  return React.createElement('div',{className:"two-panel fade-in"},
+    React.createElement(PList,{patients,selId,onSel,title:listTitle,count:listCount}),
+    React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+      !sel
+        ? React.createElement('div',{className:"card"},React.createElement('div',{className:"empty"},
+            React.createElement('div',{style:{fontSize:32}},"←"),
+            React.createElement('div',{style:{fontSize:12}},"Select a patient to activate the AI agent")
+          ))
+        : React.createElement(React.Fragment,null,
+            React.createElement('div',{className:"card"},
+              React.createElement('div',{className:"card-hdr"},
+                React.createElement('span',{className:"card-title"},
+                  React.createElement('div',{className:"pav",style:{width:22,height:22,fontSize:8}},sel.av),
+                  sel.name
+                ),
+                React.createElement('div',{className:"rbadge",style:{background:riskBg(sel.risk),color:riskColor(sel.risk),fontSize:9}},sel.risk?.toUpperCase()+" PRIORITY")
+              ),
+              React.createElement('div',{className:"card-body"},
+                renderProfile(sel),
+                React.createElement('div',{className:"ch-row"},
+                  ["SMS","Email","WhatsApp","Voicemail"].map(c=>React.createElement('button',{
+                    key:c,className:`ch-btn${ch===c?" act":""}`,onClick:()=>setCh(c)
+                  },c))
+                ),
+                React.createElement('div',{style:{display:"flex",gap:8,alignItems:"center"}},
+                  React.createElement('button',{className:"run-btn",onClick:go,disabled:loading||!ready},
+                    loading
+                      ? React.createElement(React.Fragment,null,React.createElement('div',{className:"mspin"})," Generating…")
+                      : "✦ Run Flywheel Agent"
+                  ),
+                  !ready&&React.createElement('span',{style:{fontSize:9,color:C.muted}},"Loading AI…"),
+                  ran&&!loading&&React.createElement('button',{
+                    onClick:()=>{setOut("");setRan(false);},
+                    style:{fontSize:10,color:C.muted,background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 10px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}
+                  },"↺ Reset")
+                )
+              )
+            ),
+            ran&&React.createElement('div',{className:"card fade-in"},
+              React.createElement('div',{className:"card-hdr"},
+                React.createElement('span',{className:"card-title"},
+                  React.createElement('span',{style:{color:C.teal}},"✦ "),outputTitle," — ",ch," · ",sel.name
+                ),
+                !loading&&React.createElement('button',{
+                  onClick:()=>navigator.clipboard?.writeText(out),
+                  style:{fontSize:9,color:C.muted,background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 8px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}
+                },"Copy")
+              ),
+              React.createElement('div',{className:"card-body"},
+                React.createElement('div',{className:"ai-box"},out,loading&&React.createElement('span',{className:"cur"}))
+              )
+            )
+          )
+    )
+  );
+}
+
+// ── MODULE 1: DORMANT ──
+function ModuleDormant(){
+  const [sel,setSel]=useState(1);
+  return React.createElement('div',null,
+    React.createElement('div',{className:"section-title"},"Dormant Lead Revival"),
+    React.createElement('div',{className:"section-sub"},"AI identifies lapsed patients and deploys hyper-personalized reactivation sequences across every channel."),
+    React.createElement(AgentPanel,{
+      patients:DORMANT,selId:sel,onSel:setSel,
+      listTitle:"Dormant Patients",listCount:"5 identified",
+      renderProfile:p=>React.createElement('div',{className:"wgrid3"},
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Last Visit"),React.createElement('div',{className:"wfv"},p.last)),
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Service"),React.createElement('div',{className:"wfv"},p.svc)),
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Lifetime Value"),React.createElement('div',{className:"wfv"},p.spend)),
+        React.createElement('div',{className:"wfield",style:{gridColumn:"1/-1"}},React.createElement('div',{className:"wfl"},"Clinical Notes"),React.createElement('div',{className:"wfv",style:{fontSize:10,lineHeight:1.5}},p.note))
+      ),
+      buildPrompt:(p,ch)=>`You are Mantra AI, a healthcare practice growth agent. Generate a ${ch} outreach message to re-engage a dormant patient and a follow-up sequence plan.
+
+Patient: ${p.name} | Last Visit: ${p.last} | Service: ${p.svc} | LTV: ${p.spend}
+Notes: ${p.note}
+
+Provide:
+1. A warm, personal ${ch} message referencing their exact history (NOT a template). Create urgency without pressure. Clear next step.
+2. Follow-Up Sequence: Day 3, Day 7, Day 14 actions if no reply.
+3. Agent Reasoning: 2 sentences on why this converts this specific patient.`,
+      outputTitle:"Reactivation Output"
+    })
+  );
+}
+
+// ── MODULE 1: NO-SHOWS ──
+function ModuleNoShows(){
+  const [sel,setSel]=useState(1);
+  return React.createElement('div',null,
+    React.createElement('div',{className:"section-title"},"No-Show Prevention"),
+    React.createElement('div',{className:"section-sub"},"Scores every appointment for cancellation risk and deploys adaptive 3-touch prevention sequences automatically."),
+    React.createElement(AgentPanel,{
+      patients:NOSHOWS,selId:sel,onSel:setSel,
+      listTitle:"At-Risk Appointments",listCount:"5 today",
+      renderProfile:p=>React.createElement('div',{className:"wgrid3"},
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Appointment"),React.createElement('div',{className:"wfv"},p.appt)),
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Service"),React.createElement('div',{className:"wfv"},p.svc)),
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Value at Risk"),React.createElement('div',{className:"wfv",style:{color:C.amber}},p.val)),
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"No-Show History"),React.createElement('div',{className:"wfv"},p.history)),
+        React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Booking Source"),React.createElement('div',{className:"wfv"},p.source)),
+      ),
+      buildPrompt:(p,ch)=>`You are Mantra AI's no-show prevention agent. Build a 3-touch ${ch} prevention sequence.
+
+Patient: ${p.name} | Appt: ${p.appt} | Service: ${p.svc} | Value: ${p.val}
+No-Show History: ${p.history} | Booking Source: ${p.source}
+
+Generate:
+1. CONFIRMATION (send now): Confirm appointment, one-tap confirm/reschedule.
+2. REMINDER (24 hrs before): Build anticipation, prep tips, parking/arrival info.
+3. DAY-OF (2 hrs before): Warm final nudge.
+
+Then: Risk Assessment (no-show % + signals) and one source-specific intervention for ${p.source} patients.`,
+      outputTitle:"Prevention Sequence"
+    })
+  );
+}
+
+// ── MODULE 1: TREATMENT ──
+function ModuleTreatment(){
+  const [sel,setSel]=useState(1);
+  return React.createElement('div',null,
+    React.createElement('div',{className:"section-title"},"Treatment Plan Recovery"),
+    React.createElement('div',{className:"section-sub"},"Identifies incomplete care plans and recovers at-risk revenue through clinical completion messaging."),
+    React.createElement(AgentPanel,{
+      patients:TREATMENTS,selId:sel,onSel:setSel,
+      listTitle:"Incomplete Plans",listCount:"$13.7K at risk",
+      renderProfile:p=>{
+        const pct=Math.round((p.done/p.total)*100);
+        const rem=100-pct;
+        return React.createElement('div',null,
+          React.createElement('div',{className:"wgrid3"},
+            React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Plan"),React.createElement('div',{className:"wfv"},p.plan)),
+            React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Last Seen"),React.createElement('div',{className:"wfv"},p.last)),
+            React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"At Risk"),React.createElement('div',{className:"wfv",style:{color:C.amber}},p.val))
+          ),
+          React.createElement('div',{style:{marginBottom:10}},
+            React.createElement('div',{className:"prog-row"},
+              React.createElement('div',{className:"prog-lbl"},"Completed"),
+              React.createElement('div',{className:"prog-track"},React.createElement('div',{className:"prog-fill pf-teal",style:{width:pct+"%"}})),
+              React.createElement('div',{className:"prog-pct"},pct+"%")
+            ),
+            React.createElement('div',{className:"prog-row"},
+              React.createElement('div',{className:"prog-lbl"},"Remaining"),
+              React.createElement('div',{className:"prog-track"},React.createElement('div',{className:"prog-fill pf-amber",style:{width:rem+"%"}})),
+              React.createElement('div',{className:"prog-pct"},rem+"%")
+            )
+          )
+        );
+      },
+      buildPrompt:(p,ch)=>{
+        const pct=Math.round((p.done/p.total)*100);
+        return `You are Mantra AI's treatment recovery agent. Generate a recovery playbook.
+
+Patient: ${p.name} | Plan: ${p.plan} | Progress: ${p.done} of ${p.total} sessions (${pct}%)
+Revenue at Risk: ${p.val} | Last Seen: ${p.last}
+
+Generate:
+1. RECOVERY ${ch}: Reference exactly where they left off. Clinical consequence of not completing (gentle, not fear-mongering). Personal tone.
+2. REACTIVATION OFFER: Specific time-limited incentive.
+3. COMPLETION PATH: Reframe remaining sessions as achievable.
+
+Revenue Analysis: Recovered revenue if plan completed, LTV projection, 3-touch follow-up plan.`;
+      },
+      outputTitle:"Recovery Playbook"
+    })
+  );
+}
+
+// ── MODULE 2: FRONT DESK ──
+function ModuleFrontDesk(){
+  const {run,ready}=useAI();
+  const [msgs,setMsgs]=useState([
+    {role:"assistant",text:"Hi! Welcome to Wellness & Aesthetics Center 🌿\n\nI'm your AI assistant — I can help you book appointments, answer service questions, or connect you with our team. How can I help today?"}
+  ]);
+  const [inp,setInp]=useState("");
+  const [loading,setLoading]=useState(false);
+  const chatRef=useRef(null);
+  const histRef=useRef([]);
+
+  useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs]);
+
+  async function send(){
+    if(!inp.trim()||loading||!ready) return;
+    const txt=inp.trim();setInp("");
+    histRef.current=[...histRef.current,{role:"user",content:txt}];
+    setMsgs(p=>[...p,{role:"user",text:txt}]);
+    setLoading(true);
+    setMsgs(p=>[...p,{role:"assistant",text:""}]);
+    let aiText="";
+    try{
+      const ctx=histRef.current.slice(-8).map(m=>`${m.role}: ${m.content}`).join("\n");
+      await run(
+        `You are the AI Front Desk for Wellness & Aesthetics Center (powered by Mantra AI). Warm, professional, concise.
+
+Services & pricing: Botox $12/unit (avg $360-480), Fillers from $650, Laser Hair Removal from $150/session, IV Therapy $150-350, Facials $85-175, Teeth Whitening $299, Chemical Peel $125-350.
+
+Hours: Mon-Fri 9AM-6PM, Sat 10AM-4PM. Booking: ${BOOKING}
+
+Conversation so far:
+${ctx}
+
+Latest message: ${txt}
+
+Respond naturally. If booking, confirm details. If pricing, give ranges. Always offer a next step. Keep under 100 words.`,
+        delta=>{aiText+=delta;setMsgs(p=>[...p.slice(0,-1),{role:"assistant",text:aiText}]);}
+      );
+      histRef.current=[...histRef.current,{role:"assistant",content:aiText}];
+    }catch(e){setMsgs(p=>[...p.slice(0,-1),{role:"assistant",text:"Connection issue — please call us at (312) 555-0100!"}]);}
+    finally{setLoading(false);}
+  }
+
+  return React.createElement('div',{className:"fade-in"},
+    React.createElement('div',{className:"section-title"},"AI Front Desk Agent"),
+    React.createElement('div',{className:"section-sub"},"24/7 intelligent call, chat, and text handling. Book appointments, answer questions, intake new patients — live demo below."),
+    React.createElement('div',{className:"grid4",style:{marginBottom:16}},
+      [{ico:"📞",lbl:"Calls Handled Today",val:"23",sub:"3 missed calls auto-resolved"},{ico:"💬",lbl:"Chat Inquiries",val:"41",sub:"Avg response: 1.2 seconds"},{ico:"📅",lbl:"Appts Booked by AI",val:"8",sub:"Zero staff involvement"},{ico:"⭐",lbl:"Patient Satisfaction",val:"4.9",sub:"Post-chat ratings"}]
+      .map((m,i)=>React.createElement('div',{className:"metric",key:i},
+        React.createElement('div',{style:{fontSize:20,marginBottom:8}},m.ico),
+        React.createElement('div',{className:"metric-val",style:{color:C.teal,fontSize:22}},m.val),
+        React.createElement('div',{className:"metric-lbl"},m.lbl),
+        React.createElement('div',{className:"metric-sub"},m.sub)
+      ))
+    ),
+    React.createElement('div',{className:"card"},
+      React.createElement('div',{className:"card-hdr"},
+        React.createElement('span',{className:"card-title"},"💬 Live AI Front Desk — Type a Patient Inquiry"),
+        React.createElement('span',{className:"tag"},ready?"✦ AI Active":"Loading AI…")
+      ),
+      React.createElement('div',{ref:chatRef,style:{height:320,overflowY:"auto",padding:"12px 16px",display:"flex",flexDirection:"column",gap:10}},
+        msgs.map((m,i)=>React.createElement('div',{key:i,style:{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}},
+          React.createElement('div',{style:{maxWidth:"80%",background:m.role==="user"?"rgba(45,212,200,0.15)":C.card2,border:`1px solid ${m.role==="user"?"rgba(45,212,200,0.3)":C.borderB}`,borderRadius:10,padding:"8px 12px",fontSize:11,lineHeight:1.6,whiteSpace:"pre-wrap"}},
+            m.text,
+            m.role==="assistant"&&loading&&i===msgs.length-1&&React.createElement('span',{className:"cur"})
+          )
+        ))
+      ),
+      React.createElement('div',{style:{padding:"10px 16px",borderTop:`1px solid ${C.borderB}`,display:"flex",gap:8}},
+        React.createElement('input',{
+          value:inp,
+          onChange:e=>setInp(e.target.value),
+          onKeyDown:e=>e.key==="Enter"&&send(),
+          placeholder:"Try: 'I want to book Botox' or 'How much are fillers?'",
+          style:{flex:1,background:C.dim,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 12px",fontSize:11,color:C.white,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none"}
+        }),
+        React.createElement('button',{className:"run-btn",onClick:send,disabled:loading||!inp.trim()||!ready,style:{padding:"8px 14px",fontSize:11}},"Send")
+      )
+    )
+  );
+}
+
+// ── MODULE 2: SCHEDULING ──
+function ModuleScheduling(){
+  const slots=[
+    {time:"9:00 AM",pt:"Maria Santos",svc:"Botox 40u",prov:"Dr. Rivera",status:"confirmed",dur:45},
+    {time:"9:45 AM",pt:"— Open —",svc:"OPEN SLOT",prov:"Dr. Rivera",status:"open",dur:30},
+    {time:"10:15 AM",pt:"Marcus Johnson",svc:"Root Canal",prov:"Dr. Park",status:"risk",dur:90},
+    {time:"11:45 AM",pt:"Christine Lee",svc:"Laser Session #3",prov:"Dr. Chen",status:"confirmed",dur:60},
+    {time:"1:00 PM",pt:"Waitlist: 3 patients",svc:"AUTO-FILLING",prov:"Any",status:"fill",dur:45},
+    {time:"1:45 PM",pt:"Sofia Ramirez",svc:"Botox 40u",prov:"Dr. Rivera",status:"confirmed",dur:30},
+    {time:"2:15 PM",pt:"Taylor Brooks",svc:"Lip Filler Consult",prov:"Dr. Rivera",status:"risk",dur:45},
+    {time:"3:00 PM",pt:"Kevin O'Brien",svc:"Crown Prep",prov:"Dr. Park",status:"confirmed",dur:120},
+    {time:"4:00 PM",pt:"— Open —",svc:"OPEN SLOT",prov:"Dr. Park",status:"open",dur:60},
+  ];
+  const sc=s=>s==="confirmed"?C.green:s==="risk"?C.red:s==="open"?C.muted:C.teal;
+  const sb=s=>s==="confirmed"?"rgba(34,197,94,0.1)":s==="risk"?"rgba(239,68,68,0.1)":s==="open"?"rgba(255,255,255,0.03)":"rgba(45,212,200,0.1)";
+  const sl=s=>s==="risk"?"⚡ Sequence active":s==="open"?"📤 Filling from waitlist":s==="fill"?"🤖 AI matching now":"✅ Confirmed";
+  return React.createElement('div',{className:"fade-in"},
+    React.createElement('div',{className:"section-title"},"Intelligent Scheduling"),
+    React.createElement('div',{className:"section-sub"},"AI fills cancellations from the waitlist instantly, flags at-risk appointments in real time, and optimizes provider calendars."),
+    React.createElement('div',{className:"grid4",style:{marginBottom:16}},
+      [{lbl:"Today's Utilization",val:"74%",c:C.teal,sub:"↑ 12% vs last week"},{lbl:"Revenue Today",val:"$6,840",c:C.green,sub:"8 of 9 slots filled"},{lbl:"At-Risk Appts",val:"2",c:C.red,sub:"Auto-sequences running"},{lbl:"Waitlist Patients",val:"11",c:C.amber,sub:"Ready to fill slots"}]
+      .map((m,i)=>React.createElement('div',{className:"metric",key:i},
+        React.createElement('div',{className:"metric-val",style:{color:m.c,fontSize:22}},m.val),
+        React.createElement('div',{className:"metric-lbl"},m.lbl),
+        React.createElement('div',{className:"metric-sub"},m.sub)
+      ))
+    ),
+    React.createElement('div',{className:"card"},
+      React.createElement('div',{className:"card-hdr"},
+        React.createElement('span',{className:"card-title"},"📅 Today's Schedule"),
+        React.createElement('span',{style:{fontSize:9,color:C.muted}},"Mon Sep 21, 2026")
+      ),
+      React.createElement('table',{className:"tbl"},
+        React.createElement('thead',null,React.createElement('tr',null,
+          ["Time","Patient","Service","Provider","Duration","Status","AI Action"].map(h=>React.createElement('th',{key:h},h))
+        )),
+        React.createElement('tbody',null,slots.map((s,i)=>React.createElement('tr',{key:i},
+          React.createElement('td',{style:{fontFamily:"'DM Mono',monospace",fontSize:10,color:C.teal}},s.time),
+          React.createElement('td',{style:{fontWeight:600}},s.pt),
+          React.createElement('td',{style:{fontSize:10,color:s.status==="open"||s.status==="fill"?C.teal:C.white}},s.svc),
+          React.createElement('td',{style:{fontSize:10,color:C.muted}},s.prov),
+          React.createElement('td',{style:{fontSize:10,color:C.muted,fontFamily:"'DM Mono',monospace"}},s.dur+"m"),
+          React.createElement('td',null,React.createElement('div',{className:"chip",style:{background:sb(s.status),color:sc(s.status)}},s.status.toUpperCase())),
+          React.createElement('td',{style:{fontSize:9,color:C.muted}},sl(s.status))
+        )))
+      )
+    )
+  );
+}
+
+// ── MODULE 3: REVENUE CYCLE ──
+function ModuleRevenueCycle(){
+  const {run,ready}=useAI();
+  const [selClaim,setSelClaim]=useState(null);
+  const [out,setOut]=useState("");
+  const [loading,setLoading]=useState(false);
+
+  async function fix(c){
+    setSelClaim(c.id);setOut("");setLoading(true);
+    try{
+      await run(
+        `You are Mantra AI's revenue cycle agent. Generate a complete claim resolution plan.
+
+Claim: ${c.pt} | Service: ${c.svc} | Amount: ${c.amount} | Payer: ${c.payer}
+Status: ${c.status} | Reason: ${c.reason} | Days Outstanding: ${c.days}
+
+Generate:
+1. ROOT CAUSE: Why this claim failed/is at risk.
+2. ACTION PLAN: Exact steps to resolve in 24-48 hours.
+3. CORRECTED CLAIM: Specific codes or documentation needed.
+4. PAYER NOTE: Known quirks about ${c.payer}.
+5. PREVENTION: How to avoid this in future.
+
+Be specific with billing codes (CDT/CPT). Concise and actionable.`,
+        delta=>setOut(p=>p+delta)
+      );
+    }catch(e){setOut("⚠️ "+e.message);}
+    finally{setLoading(false);}
+  }
+
+  const claim=CLAIMS.find(x=>x.id===selClaim);
+  return React.createElement('div',{className:"fade-in"},
+    React.createElement('div',{className:"section-title"},"Revenue Cycle Intelligence"),
+    React.createElement('div',{className:"section-sub"},"AI monitors every claim, predicts denials before submission, and auto-generates corrections — click any claim to run the agent."),
+    React.createElement('div',{className:"grid4",style:{marginBottom:16}},
+      [{lbl:"Outstanding Claims",val:"$8,760",c:C.amber,sub:"5 in queue"},{lbl:"Denial Rate",val:"11.2%",c:C.red,sub:"↓ 4.1% with AI monitoring"},{lbl:"Avg Days to Collect",val:"18d",c:C.teal,sub:"↓ 7 days vs manual"},{lbl:"Recovered MTD",val:"$14.2K",c:C.green,sub:"Denied + missed claims"}]
+      .map((m,i)=>React.createElement('div',{className:"metric",key:i},
+        React.createElement('div',{className:"metric-val",style:{color:m.c,fontSize:22}},m.val),
+        React.createElement('div',{className:"metric-lbl"},m.lbl),
+        React.createElement('div',{className:"metric-sub"},m.sub)
+      ))
+    ),
+    React.createElement('div',{className:"two-panel"},
+      React.createElement('div',{className:"card"},
+        React.createElement('div',{className:"card-hdr"},React.createElement('span',{className:"card-title"},"Claims Queue"),React.createElement('span',{style:{fontSize:9,color:C.muted}},"5 items")),
+        React.createElement('div',{className:"plist"},
+          CLAIMS.map(c=>React.createElement('div',{key:c.id,className:`pitem${selClaim===c.id?" sel":""}`,onClick:()=>fix(c)},
+            React.createElement('div',{className:"pav",style:{borderRadius:6,fontSize:8}},c.payer.slice(0,3).toUpperCase()),
+            React.createElement('div',{className:"pinfo"},
+              React.createElement('div',{className:"pname"},c.pt),
+              React.createElement('div',{className:"psub"},c.svc+" · "+c.amount)
+            ),
+            React.createElement('div',{className:"chip",style:{background:statusBg(c.status),color:statusColor(c.status),fontSize:8}},c.status.toUpperCase())
+          ))
+        )
+      ),
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        !selClaim
+          ? React.createElement('div',{className:"card"},React.createElement('div',{className:"empty"},React.createElement('div',{style:{fontSize:28}},"📋"),React.createElement('div',{style:{fontSize:12}},"Select a claim to run the Revenue Agent")))
+          : React.createElement('div',{className:"card fade-in"},
+              React.createElement('div',{className:"card-hdr"},
+                React.createElement('span',{className:"card-title"},
+                  React.createElement('span',{style:{color:C.teal}},"✦ "),
+                  "Revenue Agent — ",claim.pt," · ",claim.amount
+                ),
+                React.createElement('div',{className:"chip",style:{background:statusBg(claim.status),color:statusColor(claim.status),fontSize:8}},claim.status.toUpperCase())
+              ),
+              React.createElement('div',{className:"card-body"},
+                React.createElement('div',{className:"wgrid3",style:{marginBottom:12}},
+                  React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Payer"),React.createElement('div',{className:"wfv"},claim.payer)),
+                  React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Days Out"),React.createElement('div',{className:"wfv",style:{color:C.amber}},claim.days+" days")),
+                  React.createElement('div',{className:"wfield"},React.createElement('div',{className:"wfl"},"Reason"),React.createElement('div',{className:"wfv"},claim.reason))
+                ),
+                React.createElement('div',{className:"ai-box"},out||"Generating resolution plan…",loading&&React.createElement('span',{className:"cur"}))
+              )
+            )
+      )
+    )
+  );
+}
+
+// ── MODULE 3: FINANCIAL ──
+function ModuleFinancial(){
+  const months=["Apr","May","Jun","Jul","Aug","Sep"];
+  const revenue=[68400,72100,79800,81200,85600,94300];
+  const maxR=Math.max(...revenue);
+  return React.createElement('div',{className:"fade-in"},
+    React.createElement('div',{className:"section-title"},"Financial Intelligence Dashboard"),
+    React.createElement('div',{className:"section-sub"},"Real-time P&L, discount leakage analysis, payer performance, and revenue forecasting — updated automatically."),
+    React.createElement('div',{className:"grid4",style:{marginBottom:16}},
+      [{lbl:"MRR",val:"$94.3K",c:C.teal,sub:"↑ 10.2% vs last month"},{lbl:"ARR Run Rate",val:"$1.13M",c:C.green,sub:"Tracking to $1.2M"},{lbl:"Revenue/Patient",val:"$536",c:C.purple,sub:"↑ $48 vs 6 months ago"},{lbl:"AI Identified Leakage",val:"$14.8K",c:C.amber,sub:"This month"}]
+      .map((m,i)=>React.createElement('div',{className:"metric",key:i},
+        React.createElement('div',{className:"metric-val",style:{color:m.c,fontSize:22}},m.val),
+        React.createElement('div',{className:"metric-lbl"},m.lbl),
+        React.createElement('div',{className:"metric-sub"},m.sub)
+      ))
+    ),
+    React.createElement('div',{className:"grid2"},
+      React.createElement('div',{className:"card"},
+        React.createElement('div',{className:"card-hdr"},React.createElement('span',{className:"card-title"},"📈 Revenue — Last 6 Months")),
+        React.createElement('div',{className:"card-body"},
+          React.createElement('div',{className:"revenue-bar"},
+            months.map((m,i)=>React.createElement('div',{className:"rev-col",key:i},
+              React.createElement('div',{className:`rev-bar${i===5?" current":""}`,style:{height:Math.round((revenue[i]/maxR)*100)+"%",opacity:i===5?1:0.65}}),
+              React.createElement('div',{className:"rev-lbl"},m)
+            ))
+          ),
+          React.createElement('div',{style:{marginTop:12,display:"flex",gap:14,flexWrap:"wrap"}},
+            months.map((m,i)=>React.createElement('div',{key:i},
+              React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:10,color:i===5?C.teal:C.white}},"$"+(revenue[i]/1000).toFixed(1)+"K"),
+              React.createElement('div',{style:{fontSize:8,color:C.muted}},m)
+            ))
+          )
+        )
+      ),
+      React.createElement('div',{className:"card"},
+        React.createElement('div',{className:"card-hdr"},React.createElement('span',{className:"card-title"},"🔍 Revenue Leakage Breakdown")),
+        React.createElement('div',{className:"card-body"},
+          [{cat:"Incomplete treatment plans",amt:"$6,200",pct:42,c:C.red},{cat:"Undercoded procedures",amt:"$3,800",pct:26,c:C.amber},{cat:"Denied & not resubmitted",amt:"$2,600",pct:18,c:"#fb923c"},{cat:"Discount over-application",amt:"$1,400",pct:9,c:C.purple},{cat:"Uncollected co-pays",amt:"$800",pct:5,c:C.muted}]
+          .map((r,i)=>React.createElement('div',{key:i,style:{marginBottom:10}},
+            React.createElement('div',{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+              React.createElement('div',{style:{fontSize:10}},r.cat),
+              React.createElement('div',{style:{fontSize:10,fontWeight:700,color:r.c,fontFamily:"'DM Mono',monospace"}},r.amt)
+            ),
+            React.createElement('div',{className:"prog-track"},React.createElement('div',{className:"prog-fill",style:{width:r.pct+"%",background:r.c}}))
+          )),
+          React.createElement('div',{style:{marginTop:14,padding:"10px 14px",background:"rgba(45,212,200,0.06)",border:`1px solid ${C.border}`,borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            React.createElement('div',{style:{fontSize:12,fontWeight:700}},"Total Recoverable"),
+            React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,background:C.gradH,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}},"$47,220")
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── DASHBOARD ──
+function Dashboard(){
+  return React.createElement('div',{className:"fade-in"},
+    React.createElement('div',{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}},
+      React.createElement('div',null,
+        React.createElement('div',{className:"section-title"},"Practice Overview"),
+        React.createElement('div',{className:"section-sub"},"Wellness & Aesthetics Center · Mon, Sep 21, 2026")
+      ),
+      React.createElement('div',{className:"tag"},"🌿 Patient Flywheel · All Systems Active")
+    ),
+    React.createElement('div',{className:"grid4",style:{marginBottom:16}},
+      [{ico:"💬",lbl:"Revenue Recovered MTD",val:"$41.2K",sub:"↑ 22% vs last month",c:C.teal},{ico:"📅",lbl:"No-Shows Prevented",val:"34%",sub:"Reduction this month",c:C.green},{ico:"🎯",lbl:"Treatment Plans Recovered",val:"61%",sub:"8 of 13 reactivated",c:C.purple},{ico:"⚡",lbl:"AI Actions Today",val:"127",sub:"Across all 3 modules",c:C.amber}]
+      .map((m,i)=>React.createElement('div',{className:"metric",key:i},
+        React.createElement('div',{style:{fontSize:20,marginBottom:6}},m.ico),
+        React.createElement('div',{className:"metric-val",style:{color:m.c,fontSize:24}},m.val),
+        React.createElement('div',{className:"metric-lbl"},m.lbl),
+        React.createElement('div',{className:"metric-sub"},m.sub)
+      ))
+    ),
+    React.createElement('div',{className:"grid2",style:{marginBottom:14}},
+      React.createElement('div',{className:"card"},
+        React.createElement('div',{className:"card-hdr"},
+          React.createElement('span',{className:"card-title"},"🔥 Active Flywheel Alerts"),
+          React.createElement('span',{style:{fontSize:9,color:C.red,fontWeight:700}},"5 need attention")
+        ),
+        React.createElement('div',{className:"card-body"},
+          [{ico:"🔴",txt:"Marcus Johnson — Root Canal today 4:30 PM — 72% no-show risk — 3-touch sequence active",mod:"No-Shows"},{ico:"🔴",txt:"Maria Santos — 14 months dormant — $2,400 LTV — reactivation SMS sent this morning",mod:"Dormant"},{ico:"🟡",txt:"Christine Lee — 2 of 6 laser sessions done — $1,600 at risk — recovery playbook deployed",mod:"Treatment"},{ico:"🟡",txt:"Taylor Brooks — Lip filler tomorrow — 2× no-show history — confirmation pending",mod:"No-Shows"},{ico:"🟡",txt:"Delta Dental — 3 denied claims — $4,000 outstanding — recode required",mod:"Revenue"}]
+          .map((a,i)=>React.createElement('div',{className:"act-item",key:i},
+            React.createElement('div',{style:{fontSize:14,marginTop:2}},a.ico),
+            React.createElement('div',{style:{flex:1}},React.createElement('div',{style:{fontSize:10,lineHeight:1.5}},a.txt)),
+            React.createElement('div',{style:{fontSize:8,fontWeight:700,color:C.teal,background:"rgba(45,212,200,0.08)",border:`1px solid ${C.border}`,borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap"}},a.mod)
+          ))
+        )
+      ),
+      React.createElement('div',{className:"card"},
+        React.createElement('div',{className:"card-hdr"},
+          React.createElement('span',{className:"card-title"},"📊 Revenue Leak Summary"),
+          React.createElement('span',{style:{fontSize:9,fontWeight:700,color:C.red}},"$47K+ identified")
+        ),
+        React.createElement('div',{className:"card-body"},
+          [{lbl:"Dormant patients",val:"$12,100",pct:26,c:C.teal},{lbl:"No-shows this month",val:"$8,400",pct:18,c:C.red},{lbl:"Incomplete plans",val:"$13,760",pct:29,c:C.amber},{lbl:"Billing leakage",val:"$8,760",pct:19,c:C.purple},{lbl:"Discount over-application",val:"$4,200",pct:9,c:C.muted}]
+          .map((r,i)=>React.createElement('div',{key:i,style:{marginBottom:10}},
+            React.createElement('div',{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+              React.createElement('div',{style:{fontSize:10}},r.lbl),
+              React.createElement('div',{style:{fontSize:10,fontWeight:700,fontFamily:"'DM Mono',monospace",color:r.c}},r.val)
+            ),
+            React.createElement('div',{className:"prog-track"},React.createElement('div',{className:"prog-fill",style:{width:r.pct+"%",background:r.c}}))
+          )),
+          React.createElement('div',{style:{marginTop:14,padding:"10px 14px",background:"rgba(45,212,200,0.06)",border:`1px solid ${C.border}`,borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            React.createElement('div',{style:{fontSize:12,fontWeight:700}},"Total Recoverable Revenue"),
+            React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:18,background:C.gradH,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}},"$47,220")
+          )
+        )
+      )
+    ),
+    React.createElement('div',{className:"card"},
+      React.createElement('div',{className:"card-hdr"},React.createElement('span',{className:"card-title"},"⚡ Today's Flywheel Activity")),
+      React.createElement('div',{className:"card-body"},
+        React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,textAlign:"center"}},
+          [{lbl:"SMS Sent",val:14,c:C.teal},{lbl:"Emails Sent",val:23,c:C.blue},{lbl:"WhatsApp",val:8,c:C.green},{lbl:"Calls Handled",val:23,c:C.purple},{lbl:"Appts Confirmed",val:6,c:C.green},{lbl:"At-Risk Flagged",val:2,c:C.red},{lbl:"Plans Tracked",val:13,c:C.amber},{lbl:"Claims Reviewed",val:5,c:C.teal}]
+          .map((s,i)=>React.createElement('div',{key:i,style:{background:C.card2,borderRadius:8,padding:10,border:`1px solid ${C.borderB}`}},
+            React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:22,color:s.c,lineHeight:1}},s.val),
+            React.createElement('div',{style:{fontSize:9,color:C.muted,marginTop:4}},s.lbl)
+          ))
+        )
+      )
+    )
+  );
+}
+
+// ── APP ──
+const NAV=[
+  {id:"dashboard",label:"Dashboard",ico:"📊",group:null},
+  {id:"dormant",label:"Dormant Lead Revival",ico:"💬",group:"🔄 Module 1 — Flywheel Agents",badge:"5"},
+  {id:"noshows",label:"No-Show Prevention",ico:"📅",group:"#1",badge:"2"},
+  {id:"treatment",label:"Treatment Recovery",ico:"🎯",group:"#1"},
+  {id:"frontdesk",label:"AI Front Desk",ico:"📞",group:"🤖 Module 2 — Admin Intelligence"},
+  {id:"scheduling",label:"Smart Scheduling",ico:"🗓",group:"#2"},
+  {id:"revenue",label:"Revenue Cycle",ico:"💰",group:"💰 Module 3 — Revenue Intelligence",badge:"3"},
+  {id:"financial",label:"Financial Dashboard",ico:"📈",group:"#3"},
+];
+
+function App(){
+  const [page,setPage]=useState("dashboard");
+
+  function render(){
+    switch(page){
+      case "dashboard": return React.createElement(Dashboard);
+      case "dormant":   return React.createElement(ModuleDormant);
+      case "noshows":   return React.createElement(ModuleNoShows);
+      case "treatment": return React.createElement(ModuleTreatment);
+      case "frontdesk": return React.createElement(ModuleFrontDesk);
+      case "scheduling":return React.createElement(ModuleScheduling);
+      case "revenue":   return React.createElement(ModuleRevenueCycle);
+      case "financial": return React.createElement(ModuleFinancial);
+      default: return React.createElement(Dashboard);
+    }
+  }
+
+  // Build nav groups
+  const groups=[];
+  let currentGroup=null;
+  NAV.forEach(item=>{
+    if(item.group&&!item.group.startsWith("#")){
+      currentGroup={label:item.group,items:[item]};
+      groups.push(currentGroup);
+    } else if(item.group?.startsWith("#")){
+      currentGroup?.items.push(item);
+    } else {
+      groups.push({label:null,items:[item]});
+    }
+  });
+
+  return React.createElement('div',{className:"app"},
+    // SIDEBAR
+    React.createElement('div',{className:"sidebar"},
+      React.createElement('div',{className:"sb-logo"},
+        React.createElement(Logo,{size:28}),
+        React.createElement('div',null,
+          React.createElement('div',{className:"sb-logoname"},"MANTRA AI"),
+          React.createElement('div',{style:{fontSize:8,color:C.muted,letterSpacing:"1px"}},"Patient Flywheel")
+        )
+      ),
+      React.createElement('div',{style:{padding:"8px 0",flex:1}},
+        groups.map((g,gi)=>React.createElement('div',{key:gi},
+          g.label&&React.createElement('div',{className:"sb-section"},g.label),
+          g.items.map(item=>React.createElement('div',{
+            key:item.id,
+            className:`sb-item${page===item.id?" active":""}`,
+            onClick:()=>setPage(item.id)
+          },
+            React.createElement('span',{style:{fontSize:13,width:18,textAlign:"center"}},item.ico),
+            React.createElement('span',{style:{flex:1}},item.label),
+            item.badge&&React.createElement('span',{className:"sb-badge"},item.badge)
+          ))
+        ))
+      ),
+      React.createElement('div',{style:{padding:14}},
+        React.createElement('a',{href:BOOKING,target:"_blank",rel:"noopener noreferrer",
+          style:{display:"flex",alignItems:"center",gap:8,background:C.grad,borderRadius:8,padding:"10px 14px",textDecoration:"none",boxShadow:"0 4px 16px rgba(45,212,200,0.25)"}},
+          React.createElement('span',{style:{fontSize:14}},"🗓"),
+          React.createElement('div',null,
+            React.createElement('div',{style:{fontSize:11,fontWeight:800,color:"#fff"}},"Book Strategy Call"),
+            React.createElement('div',{style:{fontSize:9,color:"rgba(255,255,255,0.7)"}},"Free 30-min demo")
+          )
+        )
+      )
+    ),
+    // MAIN
+    React.createElement('div',{className:"main"},
+      React.createElement('div',{className:"topbar"},
+        React.createElement('div',{style:{display:"flex",alignItems:"center",gap:8,fontSize:12,fontWeight:600}},
+          React.createElement('div',{className:"tb-dot"}),
+          "Wellness & Aesthetics Center",
+          React.createElement('span',{style:{fontSize:9,color:C.muted,fontWeight:400}},"· All Modules Active")
+        ),
+        React.createElement('div',{style:{display:"flex",alignItems:"center",gap:10}},
+          React.createElement('div',{style:{fontSize:10,fontWeight:600,color:C.teal,background:"rgba(45,212,200,0.08)",border:`1px solid rgba(45,212,200,0.2)`,borderRadius:20,padding:"3px 10px"}},"✦ Flywheel System v1.0"),
+          React.createElement('a',{href:BOOKING,target:"_blank",rel:"noopener noreferrer",className:"tb-cta"},"🗓 Book Free Demo")
+        )
+      ),
+      React.createElement('div',{className:"content"},render())
+    )
+  );
+}
+
+const styleEl=document.createElement('style');
+styleEl.textContent=css;
+document.head.appendChild(styleEl);
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>

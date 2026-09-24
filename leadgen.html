@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Mantra AI — Lead Generation Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body,#root{min-height:100%;background:#07101A;font-family:'Plus Jakarta Sans',sans-serif;color:#F0F6FF;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:#1A2E42;border-radius:2px;}
+</style>
+</head>
+<body><div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+const BOOKING="https://calendly.com/ankur824/30min";
+const SITE="https://www.mantraai.ai/";
+
+const C={
+  bg:"#07101A",bg2:"#0B1825",card:"#0F2035",card2:"#122440",
+  border:"rgba(45,212,200,0.15)",borderB:"rgba(45,212,200,0.07)",
+  teal:"#2DD4C8",blue:"#1565C0",
+  grad:"linear-gradient(135deg,#2DD4C8,#1E9BBF,#1565C0)",
+  gradH:"linear-gradient(90deg,#2DD4C8,#1565C0)",
+  white:"#F0F6FF",muted:"#4A6580",dim:"#1A2E42",
+  green:"#22C55E",red:"#EF4444",amber:"#F59E0B",purple:"#8B5CF6",
+};
+
+// ── AI Hook ──
+function useAI(){
+  const[ready]=useState(true);
+  const run=useCallback(async(prompt,onChunk)=>{
+    const res=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt})
+    });
+    if(!res.ok) throw new Error('API error '+res.status);
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+    while(true){
+      const{done,value}=await reader.read();
+      if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');
+      buf=lines.pop()||'';
+      for(const line of lines){
+        if(line.startsWith('data: ')){
+          const d=line.slice(6).trim();
+          if(d==='[DONE]') continue;
+          try{const p=JSON.parse(d);const t=p?.delta?.text||'';if(t)onChunk(t);}catch{}
+        }
+      }
+    }
+  },[]);
+  return{ready,run};
+}
+
+// ── SVG Logo ──
+function Logo({size=30}){
+  return React.createElement('svg',{width:size,height:size,viewBox:"0 0 100 100",fill:"none"},
+    React.createElement('defs',null,React.createElement('linearGradient',{id:"lg",x1:"0%",y1:"0%",x2:"0%",y2:"100%"},
+      React.createElement('stop',{offset:"0%",stopColor:"#2DD4C8"}),React.createElement('stop',{offset:"100%",stopColor:"#1565C0"}))),
+    React.createElement('g',{transform:"translate(50,54)"},
+      React.createElement('path',{d:"M0 22 C-28 10 -38 -8 -18 -20 L0 4Z",stroke:"url(#lg)",strokeWidth:"4.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"}),
+      React.createElement('path',{d:"M0 22 C28 10 38 -8 18 -20 L0 4Z",stroke:"url(#lg)",strokeWidth:"4.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"}),
+      React.createElement('line',{x1:"0",y1:"4",x2:"0",y2:"22",stroke:"url(#lg)",strokeWidth:"4.5",strokeLinecap:"round"}),
+      React.createElement('line',{x1:"0",y1:"-20",x2:"0",y2:"-44",stroke:"url(#lg)",strokeWidth:"4",strokeLinecap:"round"}),
+      React.createElement('circle',{cx:"0",cy:"-44",r:"7",stroke:"url(#lg)",strokeWidth:"3.8",fill:"none"}),
+      React.createElement('circle',{cx:"0",cy:"-44",r:"2.5",fill:"#2DD4C8"}),
+      React.createElement('line',{x1:"-16",y1:"-32",x2:"0",y2:"-32",stroke:"url(#lg)",strokeWidth:"3.5",strokeLinecap:"round"}),
+      React.createElement('circle',{cx:"-16",cy:"-32",r:"5",stroke:"url(#lg)",strokeWidth:"3.5",fill:"none"}),
+      React.createElement('circle',{cx:"-16",cy:"-32",r:"1.8",fill:"#2DD4C8"}),
+      React.createElement('line',{x1:"16",y1:"-32",x2:"0",y2:"-32",stroke:"url(#lg)",strokeWidth:"3.5",strokeLinecap:"round"}),
+      React.createElement('circle',{cx:"16",cy:"-32",r:"5",stroke:"url(#lg)",strokeWidth:"3.5",fill:"none"}),
+      React.createElement('circle',{cx:"16",cy:"-32",r:"1.8",fill:"#1E9BBF"}),
+      React.createElement('path',{d:"M-18 -20 L0 4 L18 -20",stroke:"url(#lg)",strokeWidth:"4.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})
+    )
+  );
+}
+
+// ── Shared UI ──
+function Sel({label,value,onChange,options}){
+  return React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:5}},
+    React.createElement('label',{style:{fontSize:10,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",color:C.muted}},label),
+    React.createElement('select',{value,onChange:e=>onChange(e.target.value),
+      style:{background:C.dim,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 12px",fontSize:12,color:C.white,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",cursor:"pointer",WebkitAppearance:"none",appearance:"none"}},
+      options.map(o=>React.createElement('option',{key:o.value||o,value:o.value||o},o.label||o))
+    )
+  );
+}
+
+function RunBtn({onClick,loading,disabled,label="✦ Generate Now"}){
+  return React.createElement('button',{
+    onClick,disabled:loading||disabled,
+    style:{display:"flex",alignItems:"center",gap:7,padding:"11px 24px",background:loading||disabled?"rgba(45,212,200,0.3)":C.grad,color:"#fff",border:"none",borderRadius:9,fontSize:12,fontWeight:800,cursor:loading||disabled?"not-allowed":"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:loading||disabled?"none":"0 4px 16px rgba(45,212,200,0.3)",transition:"all 0.2s"}},
+    loading
+      ?React.createElement(React.Fragment,null,React.createElement('div',{style:{width:10,height:10,border:"1.5px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp 0.7s linear infinite"}})," Generating…")
+      :label
+  );
+}
+
+function AIOutput({out,loading,placeholder="Click Generate to create your content…",onCopy}){
+  if(!out&&!loading) return React.createElement('div',{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:120,color:C.muted,fontSize:12,fontStyle:"italic",background:"rgba(45,212,200,0.02)",border:`1px dashed rgba(45,212,200,0.12)`,borderRadius:9,padding:20,textAlign:"center"}},placeholder);
+  return React.createElement('div',{style:{position:"relative"}},
+    React.createElement('div',{style:{background:"rgba(45,212,200,0.04)",border:`1px solid rgba(45,212,200,0.15)`,borderRadius:9,padding:16,fontFamily:"'DM Mono',monospace",fontSize:10.5,lineHeight:1.85,color:"#94B4C8",whiteSpace:"pre-wrap",wordBreak:"break-word",minHeight:120}},
+      out,loading&&React.createElement('span',{style:{display:"inline-block",width:1.5,height:11,background:C.teal,marginLeft:1,verticalAlign:"middle",animation:"blink 1s step-end infinite"}})
+    ),
+    out&&!loading&&React.createElement('div',{style:{display:"flex",gap:8,marginTop:10}},
+      React.createElement('button',{onClick:()=>navigator.clipboard?.writeText(out),
+        style:{fontSize:10,color:C.teal,background:"rgba(45,212,200,0.08)",border:`1px solid rgba(45,212,200,0.2)`,borderRadius:6,padding:"5px 12px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:600}},
+        "📋 Copy"),
+      React.createElement('span',{style:{fontSize:10,color:C.muted,alignSelf:"center"}},`${out.length} characters`)
+    )
+  );
+}
+
+function Card({children,style={}}){
+  return React.createElement('div',{style:{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",...style}},children);
+}
+function CardHdr({title,sub}){
+  return React.createElement('div',{style:{padding:"11px 16px",borderBottom:`1px solid ${C.borderB}`,background:"rgba(45,212,200,0.03)",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+    React.createElement('div',{style:{fontSize:11,fontWeight:700,color:C.white}},title),
+    sub&&React.createElement('div',{style:{fontSize:10,color:C.muted}},sub)
+  );
+}
+function CardBody({children}){return React.createElement('div',{style:{padding:"16px"}},children);}
+
+const formGrid={display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14};
+const twoCol={display:"grid",gridTemplateColumns:"340px 1fr",gap:16,alignItems:"start"};
+
+// ── TAB 1: OUTREACH SEQUENCE GENERATOR ──────────────────────────────────────
+function TabOutreach(){
+  const{run,ready}=useAI();
+  const[practiceType,setPT]=useState("Med Spa");
+  const[persona,setPersona]=useState("Owner / Founder");
+  const[channel,setChannel]=useState("Cold Email");
+  const[pain,setPain]=useState("All 3 Pain Points");
+  const[tone,setTone]=useState("Professional + Warm");
+  const[bizName,setBizName]=useState("");
+  const[out,setOut]=useState("");
+  const[loading,setLoading]=useState(false);
+
+  async function generate(){
+    setLoading(true);setOut("");
+    const biz=bizName||`[Practice Name]`;
+    const prompt=`You are the Chief Marketing Officer of Mantra AI, an AI platform for healthcare practices. Generate a complete, deployable ${channel} outreach sequence to sell Mantra AI's Patient Flywheel System to the decision-maker below.
+
+TARGET:
+- Practice Type: ${practiceType}
+- Decision Maker: ${persona}
+- Business: ${biz}
+- Primary Pain Focus: ${pain}
+- Tone: ${tone}
+
+Mantra AI solves 3 revenue problems for private practices:
+1. DORMANT PATIENTS: AI reactivates lapsed patients with personalized outreach — avg $4,200 recovered per patient
+2. NO-SHOWS: AI 3-touch prevention sequences reduce no-shows 34% in 30 days — stops $127K/yr losses
+3. TREATMENT PLAN RECOVERY: AI recovers incomplete treatment plans — avg $47K sitting uncollected
+
+Product: Patient Flywheel System | Website: mantraai.ai | Booking: ${BOOKING}
+Pricing: Starts at $997/month | 30-min free strategy call shows ROI live
+
+Generate this COMPLETE sequence — each message ready to copy and send:
+
+---INITIAL ${channel.toUpperCase()} (Touch 1)---
+[Full ${channel} — subject line if email, opening line hook, body, CTA, P.S.]
+
+---FOLLOW-UP 1 (Day 3 — if no reply)---
+[Different angle, shorter, softer]
+
+---FOLLOW-UP 2 (Day 7)---
+[Social proof / urgency angle]
+
+---FOLLOW-UP 3 (Day 14 — final)---
+[Break-up style, last chance]
+
+---OBJECTION HANDLERS---
+"I already have a marketing agency": [Response]
+"We can't afford it right now": [Response]  
+"We're too busy to implement this": [Response]
+"How is this different from [competitor]": [Response]
+
+Make every message specific to ${practiceType}. Reference their real pain (no-shows, $127K loss, etc.). Sound human, not salesy. The ${persona} should feel understood, not sold to.`;
+    try{await run(prompt,d=>setOut(p=>p+d));}
+    catch(e){setOut("⚠️ "+e.message);}
+    finally{setLoading(false);}
+  }
+
+  return React.createElement('div',null,
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:20,fontWeight:800,marginBottom:4,letterSpacing:"-0.3px"}},"Outreach Sequence Generator"),
+      React.createElement('div',{style:{fontSize:12,color:C.muted}},"Generate a complete multi-touch outreach sequence + objection handlers for any channel and practice type.")
+    ),
+    React.createElement('div',{style:twoCol},
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"🎯 Configure Your Campaign"}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+              React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:5}},
+                React.createElement('label',{style:{fontSize:10,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",color:C.muted}},"Practice Name (optional)"),
+                React.createElement('input',{value:bizName,onChange:e=>setBizName(e.target.value),placeholder:"e.g. Glow Med Spa, Bright Smile Dental",
+                  style:{background:C.dim,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 12px",fontSize:12,color:C.white,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none"}})
+              ),
+              React.createElement(Sel,{label:"Practice Type",value:practiceType,onChange:setPT,options:["Med Spa","Dental Office","Dermatology Clinic","Functional Medicine","Plastic Surgery Practice","Chiropractic Office","Orthopedic Clinic","Physical Therapy","Optometry Practice","Fertility Clinic","Mental Health Practice","Urgent Care"]}),
+              React.createElement(Sel,{label:"Decision Maker",value:persona,onChange:setPersona,options:["Owner / Founder","Office Manager","Practice Manager","Medical Director","Marketing Director","Operations Director"]}),
+              React.createElement(Sel,{label:"Outreach Channel",value:channel,onChange:setChannel,options:["Cold Email","LinkedIn DM","Instagram DM","SMS Text","Cold Call Script","Direct Mail Letter","Partnership Email"]}),
+              React.createElement(Sel,{label:"Pain Point Focus",value:pain,onChange:setPain,options:["All 3 Pain Points","Dormant Patient Recovery","No-Show Prevention","Admin Burden & Staff Cost","Revenue Cycle & Billing","Treatment Plan Recovery"]}),
+              React.createElement(Sel,{label:"Tone",value:tone,onChange:setTone,options:["Professional + Warm","Direct & Data-Driven","Story-Based & Empathetic","Urgent & FOMO-Driven","Casual & Conversational"]}),
+              React.createElement(RunBtn,{onClick:generate,loading,disabled:!ready,label:"✦ Generate Full Sequence"})
+            )
+          )
+        ),
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"📊 Channel Performance Guide"}),
+          React.createElement(CardBody,null,
+            [{ch:"Cold Email",rate:"24% open / 4.2% reply",note:"Best for dental, specialty"},
+             {ch:"LinkedIn DM",rate:"38% read / 12% reply",note:"Best for owners & directors"},
+             {ch:"Instagram DM",rate:"29% seen / 8% reply",note:"Best for med spas"},
+             {ch:"SMS Text",rate:"98% open / 22% reply",note:"Highest intent — use carefully"},
+             {ch:"Cold Call",rate:"6.3% connect / 1.8% mtg",note:"Pair with email for 3x lift"},
+            ].map((r,i)=>React.createElement('div',{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<4?`1px solid ${C.borderB}`:"none"}},
+              React.createElement('div',null,
+                React.createElement('div',{style:{fontSize:11,fontWeight:600}},r.ch),
+                React.createElement('div',{style:{fontSize:9,color:C.muted,marginTop:1}},r.note)
+              ),
+              React.createElement('div',{style:{textAlign:"right"}},
+                React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:10,color:C.teal}},r.rate)
+              )
+            ))
+          )
+        )
+      ),
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        React.createElement(Card,{style:{position:"sticky",top:16}},
+          React.createElement(CardHdr,{title:"✦ Generated Outreach Sequence",sub:practiceType+" · "+channel}),
+          React.createElement(CardBody,null,
+            React.createElement(AIOutput,{out,loading,placeholder:"Configure your campaign on the left and click Generate.\n\nYou'll get a complete 4-touch sequence + objection handlers — ready to copy and deploy immediately."})
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── TAB 2: AD COPY GENERATOR ─────────────────────────────────────────────────
+function TabAdCopy(){
+  const{run,ready}=useAI();
+  const[platform,setPlatform]=useState("Facebook / Instagram");
+  const[format,setFormat]=useState("Single Image Ad");
+  const[practiceType,setPT]=useState("Med Spa");
+  const[objective,setObj]=useState("Lead Generation (Book a Demo)");
+  const[hook,setHook]=useState("Pain / Problem");
+  const[out,setOut]=useState("");
+  const[loading,setLoading]=useState(false);
+
+  async function generate(){
+    setLoading(true);setOut("");
+    const prompt=`You are the CMO of Mantra AI. Generate complete, high-converting ${platform} ad copy for the following campaign.
+
+CAMPAIGN BRIEF:
+- Platform: ${platform}
+- Ad Format: ${format}
+- Target: ${practiceType} owners and managers
+- Objective: ${objective}
+- Hook Style: ${hook}
+- Product: Mantra AI Patient Flywheel System (mantraai.ai)
+- Offer: Free 30-min strategy call showing their specific ROI: ${BOOKING}
+
+MANTRA AI VALUE PROPS:
+- Recovers dormant patients: avg $4,200/patient
+- Reduces no-shows 34% in 30 days
+- Recovers $47K in incomplete treatment plans
+- Done-for-you, HIPAA compliant, no long-term contract
+- Results in 30 days or you don't pay
+
+Generate 3 COMPLETE ad variants, each with:
+${format.includes("Video")?`
+- HOOK (first 3 seconds — must stop the scroll)
+- SCRIPT (30-60 second video script with visual cues)
+- CAPTION (for the post)
+- HEADLINE (under the video)
+- CTA BUTTON TEXT`:`
+- HEADLINE (under image — 40 chars max)
+- PRIMARY TEXT (caption — hook + story + proof + CTA)
+- IMAGE DESCRIPTION (what the creative should show)
+- CTA BUTTON TEXT`}
+
+Then provide:
+TARGETING PARAMETERS for ${platform}:
+- Detailed targeting interests/audiences
+- Lookalike audience sources
+- Geographic strategy
+- Estimated CPL range for ${practiceType}
+
+BUDGET RECOMMENDATION:
+- Testing budget (weeks 1-2)
+- Scaling budget (after validation)
+- Bid strategy
+
+Write every word of copy ready to paste into Ads Manager. No placeholders. Punchy, specific, psychology-driven.`;
+    try{await run(prompt,d=>setOut(p=>p+d));}
+    catch(e){setOut("⚠️ "+e.message);}
+    finally{setLoading(false);}
+  }
+
+  return React.createElement('div',null,
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:20,fontWeight:800,marginBottom:4,letterSpacing:"-0.3px"}},"Ad Copy Generator"),
+      React.createElement('div',{style:{fontSize:12,color:C.muted}},"Generate 3 platform-specific ad variants with full copy, targeting parameters, and budget recommendations.")
+    ),
+    React.createElement('div',{style:twoCol},
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"📱 Campaign Configuration"}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+              React.createElement(Sel,{label:"Platform",value:platform,onChange:setPlatform,options:["Facebook / Instagram","LinkedIn Ads","Google Search Ads","Google Display Ads","TikTok Ads","YouTube Ads"]}),
+              React.createElement(Sel,{label:"Ad Format",value:format,onChange:setFormat,options:["Single Image Ad","Video Ad Script","Carousel Ad","Story Ad","Lead Form Ad","Retargeting Ad"]}),
+              React.createElement(Sel,{label:"Target Practice",value:practiceType,onChange:setPT,options:["Med Spa","Dental Office","Dermatology Clinic","Functional Medicine","Plastic Surgery","Chiropractic","Physical Therapy","Any Healthcare Practice"]}),
+              React.createElement(Sel,{label:"Campaign Objective",value:objective,onChange:setObj,options:["Lead Generation (Book a Demo)","Traffic to Website","Brand Awareness","Retargeting Warm Leads","Event Registration"]}),
+              React.createElement(Sel,{label:"Hook Style",value:hook,onChange:setHook,options:["Pain / Problem First","Data & Statistics","Question Hook","Story / Narrative","Bold Claim","Social Proof","Fear of Missing Out"]}),
+              React.createElement(RunBtn,{onClick:generate,loading,disabled:!ready,label:"✦ Generate 3 Ad Variants"})
+            )
+          )
+        ),
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"💰 Paid Ads Quick Stats"}),
+          React.createElement(CardBody,null,
+            [{stat:"$28–65",lbl:"CPL — Med Spa Facebook Ads",c:C.teal},
+             {stat:"$45–90",lbl:"CPL — Dental LinkedIn Ads",c:C.blue},
+             {stat:"$12–28",lbl:"CPL — Healthcare Google Search",c:C.green},
+             {stat:"4–8x",lbl:"ROAS target (Starter tier = $997/mo)",c:C.amber},
+             {stat:"$500",lbl:"Minimum test budget / channel",c:C.purple},
+            ].map((s,i)=>React.createElement('div',{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<4?`1px solid ${C.borderB}`:"none"}},
+              React.createElement('div',{style:{fontSize:11,color:C.muted}},s.lbl),
+              React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:500,color:s.c}},s.stat)
+            ))
+          )
+        )
+      ),
+      React.createElement(Card,{style:{position:"sticky",top:16}},
+        React.createElement(CardHdr,{title:"✦ Generated Ad Copy",sub:platform+" · "+format}),
+        React.createElement(CardBody,null,
+          React.createElement(AIOutput,{out,loading,placeholder:"Configure your ad campaign and click Generate.\n\nYou'll get 3 complete ad variants ready to paste into your Ads Manager — plus targeting parameters and budget guidance."})
+        )
+      )
+    )
+  );
+}
+
+// ── TAB 3: CONTENT ENGINE ────────────────────────────────────────────────────
+function TabContent(){
+  const{run,ready}=useAI();
+  const[type,setType]=useState("LinkedIn Post");
+  const[topic,setTopic]=useState("The $47,000 hiding in your practice right now");
+  const[audience,setAudience]=useState("Med Spa Owners");
+  const[goal,setGoal]=useState("Drive Demo Bookings");
+  const[out,setOut]=useState("");
+  const[loading,setLoading]=useState(false);
+
+  const topics=["The $47,000 hiding in your practice right now","Why your best patients stopped coming back","How AI is changing private practice in 2026","The real cost of a no-show (it's not just the appointment)","Before/after: What a Patient Flywheel actually does","3 things top med spas do differently","Why 68% of patients never return on their own","The staff problem AI actually solves","A day in the life: practice with vs without AI","Case study: $41K recovered in 30 days"];
+
+  async function generate(){
+    setLoading(true);setOut("");
+    const prompt=`You are the CMO of Mantra AI. Generate a high-engagement ${type} for the topic below.
+
+CONTENT BRIEF:
+- Content Type: ${type}
+- Topic: ${topic}
+- Target Audience: ${audience}
+- Goal: ${goal}
+- Brand: Mantra AI — Patient Flywheel System for private healthcare practices
+- Website: mantraai.ai | Book a call: ${BOOKING}
+
+Mantra AI context: AI platform that recovers dormant patients ($4,200/patient avg), prevents no-shows (34% reduction), and recovers incomplete treatment plans ($47K avg per practice). Starts at $997/month.
+
+${type==="LinkedIn Post"?`Generate a COMPLETE LinkedIn post:
+- HOOK LINE (first line — stops the scroll, no emoji spam)
+- BODY (story/data/insight — 150-300 words, short paragraphs, white space)
+- CTA (clear, non-pushy — drives to ${BOOKING})
+- HASHTAGS (5-8 relevant ones)
+- BEST TIME TO POST note`:
+type==="Email Newsletter"?`Generate a COMPLETE email newsletter:
+- SUBJECT LINE (3 variants — A/B/C test)
+- PREVIEW TEXT
+- BODY (600-800 words — value-first, 1 CTA, scannable with subheads)
+- CTA BUTTON TEXT
+- P.S. LINE`:
+type==="Instagram Caption"?`Generate 3 Instagram caption variants:
+Each with:
+- CAPTION BODY (hook + value + CTA — under 150 words)
+- CALL TO ACTION
+- HASHTAGS (20-25 relevant)
+- IMAGE CONCEPT (what visual to pair with it)`:
+type==="Blog Post Intro"?`Generate a complete 600-word blog post intro section:
+- SEO TITLE (with primary keyword)
+- META DESCRIPTION (under 160 chars)
+- INTRO (hook + problem + promise — 600 words)
+- SUGGESTED H2 OUTLINE (rest of article structure)`:
+type==="Cold DM Opener"?`Generate 5 cold DM openers for ${audience} (vary hooks):
+Each: 2-3 sentences max, personalization hook, soft CTA
+Platforms: LinkedIn and Instagram versions for each`:
+type==="Case Study"?`Generate a complete case study template:
+- HEADLINE
+- PATIENT ZERO SNAPSHOT (practice profile)
+- THE PROBLEM (before state)
+- THE SOLUTION (how Mantra AI was deployed)
+- THE RESULTS (specific numbers: $X recovered, X% reduction, etc.)
+- QUOTE (fictional but realistic testimonial)
+- CTA`:
+`Generate a complete ${type} that achieves the goal above.`}
+
+Make it specific to ${audience}. Use real numbers. Every word should earn its place. No corporate fluff.`;
+    try{await run(prompt,d=>setOut(p=>p+d));}
+    catch(e){setOut("⚠️ "+e.message);}
+    finally{setLoading(false);}
+  }
+
+  return React.createElement('div',null,
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:20,fontWeight:800,marginBottom:4,letterSpacing:"-0.3px"}},"Content Engine"),
+      React.createElement('div',{style:{fontSize:12,color:C.muted}},"Generate LinkedIn posts, email newsletters, Instagram captions, blog intros, case studies, and DM openers — all ready to publish.")
+    ),
+    React.createElement('div',{style:twoCol},
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"✍️ Content Brief"}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+              React.createElement(Sel,{label:"Content Type",value:type,onChange:setType,options:["LinkedIn Post","Email Newsletter","Instagram Caption","Blog Post Intro","Cold DM Opener","Case Study","Twitter/X Thread","Video Script (Short-form)"]}),
+              React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:5}},
+                React.createElement('label',{style:{fontSize:10,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",color:C.muted}},"Topic"),
+                React.createElement('select',{value:topic,onChange:e=>setTopic(e.target.value),
+                  style:{background:C.dim,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 12px",fontSize:11,color:C.white,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",cursor:"pointer"}},
+                  topics.map(t=>React.createElement('option',{key:t,value:t},t))
+                ),
+                React.createElement('input',{value:topic,onChange:e=>setTopic(e.target.value),placeholder:"Or type your own topic…",
+                  style:{background:C.dim,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 12px",fontSize:11,color:C.white,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",marginTop:4}})
+              ),
+              React.createElement(Sel,{label:"Target Audience",value:audience,onChange:setAudience,options:["Med Spa Owners","Dental Practice Owners","Healthcare Practice Owners (General)","Office Managers","Medical Directors","Practice Managers"]}),
+              React.createElement(Sel,{label:"Content Goal",value:goal,onChange:setGoal,options:["Drive Demo Bookings","Build Brand Awareness","Educate on AI in Healthcare","Generate Inbound Leads","Nurture Warm Prospects","Establish Thought Leadership"]}),
+              React.createElement(RunBtn,{onClick:generate,loading,disabled:!ready,label:"✦ Generate Content"})
+            )
+          )
+        ),
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"📅 30-Day Content Calendar"}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{fontSize:10,color:C.muted,marginBottom:10,fontWeight:600}},"Recommended posting cadence:"),
+            [{platform:"LinkedIn",freq:"3x/week",type:"Thought leadership + data posts",c:C.blue},
+             {platform:"Instagram",freq:"5x/week",type:"Before/after, tips, social proof",c:C.purple},
+             {platform:"Email",freq:"1x/week",type:"Newsletter: 1 insight + 1 story + CTA",c:C.teal},
+             {platform:"Facebook",freq:"2x/week",type:"Community + video content",c:"#1877F2"},
+             {platform:"TikTok",freq:"3x/week",type:"30s AI demo clips, talking head",c:C.red},
+            ].map((p,i)=>React.createElement('div',{key:i,style:{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<4?`1px solid ${C.borderB}`:"none"}},
+              React.createElement('div',{style:{width:8,height:8,borderRadius:"50%",background:p.c,flexShrink:0}}),
+              React.createElement('div',{style:{flex:1}},
+                React.createElement('div',{style:{fontSize:11,fontWeight:600}},p.platform," ",React.createElement('span',{style:{color:C.teal,fontFamily:"'DM Mono',monospace",fontSize:10}},p.freq)),
+                React.createElement('div',{style:{fontSize:9,color:C.muted}},p.type)
+              )
+            ))
+          )
+        )
+      ),
+      React.createElement(Card,{style:{position:"sticky",top:16}},
+        React.createElement(CardHdr,{title:"✦ Generated Content",sub:type}),
+        React.createElement(CardBody,null,
+          React.createElement(AIOutput,{out,loading,placeholder:"Configure your content brief and click Generate.\n\nYou'll get publication-ready content with headlines, body copy, CTAs, and hashtags."})
+        )
+      )
+    )
+  );
+}
+
+// ── TAB 4: PARTNER OUTREACH ──────────────────────────────────────────────────
+function TabPartners(){
+  const{run,ready}=useAI();
+  const[partnerType,setPT]=useState("Allergan / Botox Sales Rep");
+  const[approach,setApproach]=useState("Revenue Share Partnership");
+  const[channel,setCh]=useState("Email");
+  const[out,setOut]=useState("");
+  const[loading,setLoading]=useState(false);
+
+  const partners=[
+    {type:"Allergan / Botox Sales Rep",desc:"Calls on med spas daily — perfect referral partner",reach:"50-200 practices/rep"},
+    {type:"Dental Supply Company Rep",desc:"Henry Schein, Patterson — calls on all dental offices",reach:"100-500 practices/rep"},
+    {type:"Practice Management Consultant",desc:"Already trusted advisor to practice owners",reach:"20-100 practices"},
+    {type:"Healthcare CPA / Accountant",desc:"Sees P&L — can spot the revenue leaks directly",reach:"10-50 practices"},
+    {type:"Medical Aesthetics Trainer",desc:"Trains injectors — connected to every med spa they certify",reach:"200-1000+ practices"},
+    {type:"Mindbody / Jane App Partner",desc:"Software vendors with direct access to customer base",reach:"1000s of practices"},
+    {type:"Healthcare Attorney / Compliance",desc:"HIPAA counsel — trusted by every practice they serve",reach:"20-100 practices"},
+    {type:"Medical Equipment Sales Rep",desc:"Laser/device reps — in med spas constantly",reach:"50-300 practices"},
+  ];
+
+  async function generate(){
+    setLoading(true);setOut("");
+    const partner=partners.find(p=>p.type===partnerType)||partners[0];
+    const prompt=`You are the CMO of Mantra AI. Generate a complete partner recruitment pitch targeting ${partnerType}.
+
+PARTNER PROFILE:
+- Partner Type: ${partnerType}
+- Their Reach: ${partner.reach}
+- Why They're Valuable: ${partner.desc}
+- Approach: ${approach}
+- Channel: ${channel}
+
+MANTRA AI CONTEXT:
+- Product: Patient Flywheel System for private healthcare practices
+- Price: $997-$4,997/month
+- Category: AI automation — recovers lost revenue for practices
+- Website: mantraai.ai
+- Book a call: ${BOOKING}
+
+PARTNERSHIP ECONOMICS TO OFFER:
+- Revenue share: 15-20% of first 12 months of referred client MRR
+- Co-branded demo materials
+- Exclusive territory options for high-volume partners
+- Monthly partner newsletter with practice insights they can share
+
+Generate:
+1. ${channel.toUpperCase()} OUTREACH (full, ready to send):
+   - Subject/opener, body, specific value prop for THIS partner type, compensation details, clear next step
+
+2. PARTNERSHIP ONE-PAGER TALKING POINTS:
+   - Why Mantra AI + [Partner Type] = perfect fit
+   - What's in it for them (specific numbers)
+   - How it works (3-step process)
+   - Sample revenue calculation (e.g., "10 referrals × $997/mo × 15% = $X/month passive income")
+
+3. FOLLOW-UP SEQUENCE (2 messages):
+   - Day 3 follow-up
+   - Day 10 final
+
+4. PARTNER OBJECTIONS + RESPONSES:
+   "My clients already use [software]": [Response]
+   "I don't want to seem sales-y with my clients": [Response]
+   "How do I know it works?": [Response]
+
+Make the revenue calculation very specific and compelling for a ${partnerType}.`;
+    try{await run(prompt,d=>setOut(p=>p+d));}
+    catch(e){setOut("⚠️ "+e.message);}
+    finally{setLoading(false);}
+  }
+
+  return React.createElement('div',null,
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:20,fontWeight:800,marginBottom:4,letterSpacing:"-0.3px"}},"Partner Recruitment Engine"),
+      React.createElement('div',{style:{fontSize:12,color:C.muted}},"Generate partnership pitches for reps and consultants who already call on your exact customers every single day.")
+    ),
+    React.createElement('div',{style:{marginBottom:16,background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.2)",borderRadius:9,padding:"12px 16px",fontSize:11,color:C.white,lineHeight:1.6}},
+      React.createElement('span',{style:{fontWeight:700,color:C.green}},"💡 Why partnerships are your fastest channel: "),
+      "An Allergan rep visits 5 med spas per day, 250 days/year. That's 1,250 warm intros/year per rep — all pre-qualified, trust already established. One partner network = 100x your reach overnight."
+    ),
+    React.createElement('div',{style:twoCol},
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"🤝 Partner Configuration"}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+              React.createElement(Sel,{label:"Partner Type",value:partnerType,onChange:setPT,options:partners.map(p=>p.type)}),
+              React.createElement(Sel,{label:"Partnership Approach",value:approach,onChange:setApproach,options:["Revenue Share Partnership","Referral Fee (Flat per Client)","Co-Marketing Agreement","White-Label Reseller","Affiliate Program","Speaking/Event Partner"]}),
+              React.createElement(Sel,{label:"Outreach Channel",value:channel,onChange:setCh,options:["Email","LinkedIn DM","In-Person Script","Phone Call Script","Text Message"]}),
+              React.createElement(RunBtn,{onClick:generate,loading,disabled:!ready,label:"✦ Generate Partner Pitch"})
+            )
+          )
+        ),
+        React.createElement(Card,null,
+          React.createElement(CardHdr,{title:"💰 Partner Revenue Potential"}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{fontSize:10,color:C.muted,marginBottom:10}},"At 15% rev share on referred clients:"),
+            [{refs:1,mrr:"$997",share:"$150/mo",annual:"$1,800/yr"},
+             {refs:5,mrr:"$997",share:"$748/mo",annual:"$8,970/yr"},
+             {refs:10,mrr:"$997",share:"$1,496/mo",annual:"$17,940/yr"},
+             {refs:25,mrr:"$997",share:"$3,739/mo",annual:"$44,868/yr"},
+            ].map((r,i)=>React.createElement('div',{key:i,style:{display:"grid",gridTemplateColumns:"60px 1fr 1fr",gap:8,padding:"7px 0",borderBottom:i<3?`1px solid ${C.borderB}`:"none",alignItems:"center"}},
+              React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:11,color:C.teal}},r.refs+" refs"),
+              React.createElement('div',{style:{fontSize:10,color:C.white}},r.share+" passive"),
+              React.createElement('div',{style:{fontSize:10,color:C.green,fontWeight:700}},r.annual+" /yr")
+            )),
+            React.createElement('div',{style:{marginTop:12,padding:"8px 12px",background:"rgba(45,212,200,0.06)",borderRadius:7,fontSize:10,color:C.teal,fontStyle:"italic"}},"A single Allergan rep with 25 referrals earns ~$44K/year in passive income.")
+          )
+        )
+      ),
+      React.createElement(Card,{style:{position:"sticky",top:16}},
+        React.createElement(CardHdr,{title:"✦ Generated Partner Pitch",sub:partnerType}),
+        React.createElement(CardBody,null,
+          React.createElement(AIOutput,{out,loading,placeholder:"Select a partner type and click Generate.\n\nYou'll get a complete outreach pitch, revenue talking points, follow-up sequence, and objection handlers — ready to deploy."})
+        )
+      )
+    )
+  );
+}
+
+// ── TAB 5: LEAD INTELLIGENCE ─────────────────────────────────────────────────
+function TabIntelligence(){
+  const icps=[
+    {type:"Med Spa",emoji:"💉",revenue:"$500K–$5M",size:"1–5 locations",triggers:"Growing staff, Instagram ads running, Mindbody user, 2+ years old",linkedin:'title:"med spa owner" OR "medical spa director"',meta:"Interests: Botox, Medical Aesthetics, Business Owner, Small Business",databases:"AmSpa directory, Yelp business search, Instagram business profiles, Google Maps",avgDeal:"$1,497/mo",ltv:"$17,964"},
+    {type:"Dental Office",emoji:"🦷",revenue:"$500K–$3M",size:"1–3 providers",triggers:"Dentrix/Eaglesoft user, 500+ patients, suburban/urban location",linkedin:'title:"dentist" OR "dental practice owner" OR "DSO"',meta:"Interests: Dentistry, American Dental Association, Practice Owner",databases:"ADA member directory, Dentist.com, Google Maps 4+ star dental offices",avgDeal:"$1,247/mo",ltv:"$14,964"},
+    {type:"Dermatology",emoji:"🏥",revenue:"$1M–$8M",size:"1–3 MDs + NPs",triggers:"Aesthetic services listed, booking software visible, 3+ providers",linkedin:'title:"dermatologist" OR "dermatology practice owner"',meta:"Interests: Dermatology, AAD, Aesthetic Medicine, Practice Management",databases:"AAD member finder, Castle Connolly, Zocdoc provider listings",avgDeal:"$2,497/mo",ltv:"$29,964"},
+    {type:"Functional Medicine",emoji:"🌿",revenue:"$300K–$2M",size:"Solo-3 providers",triggers:"IV therapy, hormone panels, cash-pay practice model",linkedin:'title:"functional medicine" OR "integrative medicine"',meta:"Interests: Functional Medicine, IFM, Integrative Health, Wellness",databases:"IFM member directory, Mindbody marketplace, A4M members",avgDeal:"$997/mo",ltv:"$11,964"},
+    {type:"Plastic Surgery",emoji:"⚕️",revenue:"$2M–$15M",size:"1–2 surgeons + staff",triggers:"High ticket aesthetic services, strong Instagram, before/after content",linkedin:'title:"plastic surgeon" OR "cosmetic surgeon"',meta:"Interests: ASPS, Cosmetic Surgery, Medical Aesthetics",databases:"ASPS member directory, RealSelf provider listings, Google Maps",avgDeal:"$2,997/mo",ltv:"$35,964"},
+  ];
+
+  const where=[
+    {channel:"LinkedIn Sales Navigator",cost:"$99/mo",method:"Search by title + industry + company size. Filter: 'Small Business' + 'Healthcare' + specific job titles",quality:"⭐⭐⭐⭐⭐"},
+    {channel:"Google Maps Scraping",cost:"Free",method:"Search '[specialty] near [city]', collect business info. Use tools like Outscraper or PhantomBuster",quality:"⭐⭐⭐⭐"},
+    {channel:"Instagram Business Search",cost:"Free",method:"Search hashtags: #medspa #medspabusiness #dentalpractice — DM business accounts with 500-50K followers",quality:"⭐⭐⭐⭐"},
+    {channel:"AmSpa / AAD / ADA Directories",cost:"Free-$500",method:"Association directories = pre-qualified, verified members. Cold email is expected + accepted",quality:"⭐⭐⭐⭐⭐"},
+    {channel:"Mindbody/Jane Partner Leads",cost:"Partnership",method:"Request co-marketing with practice management platforms — they'll share or co-market to their customer base",quality:"⭐⭐⭐⭐⭐"},
+    {channel:"Facebook Groups",cost:"Free",method:"Join: 'Med Spa Business', 'Dental Practice Owners', 'Healthcare Entrepreneurs' — engage, then DM",quality:"⭐⭐⭐"},
+    {channel:"Conference Lists",cost:"$200-2K",method:"AmSpa Summit, ADA annual, AAD — attendee lists, floor presence, follow-up sequences",quality:"⭐⭐⭐⭐"},
+    {channel:"ZoomInfo / Apollo.io",cost:"$150-500/mo",method:"B2B databases with emails, direct dials, intent signals. Filter healthcare + revenue range",quality:"⭐⭐⭐⭐"},
+  ];
+
+  return React.createElement('div',null,
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:20,fontWeight:800,marginBottom:4,letterSpacing:"-0.3px"}},"Lead Intelligence Center"),
+      React.createElement('div',{style:{fontSize:12,color:C.muted}},"Ideal customer profiles, where to find your best leads, targeting parameters, and database sources.")
+    ),
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:13,fontWeight:700,marginBottom:12,color:C.teal}},"🎯 Ideal Customer Profiles (ICPs)"),
+      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}},
+        icps.map((icp,i)=>React.createElement(Card,{key:i},
+          React.createElement(CardHdr,{title:`${icp.emoji} ${icp.type}`}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{display:"flex",justifyContent:"space-between",marginBottom:12}},
+              React.createElement('div',null,
+                React.createElement('div',{style:{fontSize:9,color:C.muted,fontWeight:600}}),"ANNUAL REVENUE",
+                React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:11,color:C.white,marginTop:2}},icp.revenue)
+              ),
+              React.createElement('div',{style:{textAlign:"right"}},
+                React.createElement('div',{style:{fontSize:9,color:C.muted,fontWeight:600}}),"AVG DEAL",
+                React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:11,color:C.teal,marginTop:2}},icp.avgDeal)
+              )
+            ),
+            [{lbl:"Buying Triggers",val:icp.triggers},{lbl:"LinkedIn Search",val:icp.linkedin},{lbl:"Meta Targeting",val:icp.meta},{lbl:"Database Sources",val:icp.databases}]
+            .map((f,j)=>React.createElement('div',{key:j,style:{marginBottom:8}},
+              React.createElement('div',{style:{fontSize:8,fontWeight:700,letterSpacing:"0.8px",textTransform:"uppercase",color:C.muted,marginBottom:2}},f.lbl),
+              React.createElement('div',{style:{fontSize:10,color:C.white,lineHeight:1.5}},f.val)
+            )),
+            React.createElement('div',{style:{display:"flex",justifyContent:"space-between",marginTop:8,padding:"8px 0",borderTop:`1px solid ${C.borderB}`}},
+              React.createElement('div',{style:{fontSize:9,color:C.muted}},"12-mo LTV"),
+              React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:11,color:C.green,fontWeight:500}},icp.ltv)
+            )
+          )
+        ))
+      )
+    ),
+    React.createElement('div',null,
+      React.createElement('div',{style:{fontSize:13,fontWeight:700,marginBottom:12,color:C.teal}},"📍 Where to Find Your Leads"),
+      React.createElement(Card,null,
+        React.createElement('table',{style:{width:"100%",borderCollapse:"collapse"}},
+          React.createElement('thead',null,React.createElement('tr',null,
+            ["Channel","Cost","How to Use","Lead Quality"].map(h=>React.createElement('th',{key:h,style:{fontSize:9,fontWeight:700,letterSpacing:"0.5px",textTransform:"uppercase",color:C.muted,padding:"8px 14px",borderBottom:`1px solid ${C.borderB}`,textAlign:"left"}},h))
+          )),
+          React.createElement('tbody',null,
+            where.map((r,i)=>React.createElement('tr',{key:i,style:{background:i%2===0?"transparent":"rgba(255,255,255,0.01)"}},
+              React.createElement('td',{style:{fontSize:11,fontWeight:700,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`}},r.channel),
+              React.createElement('td',{style:{fontFamily:"'DM Mono',monospace",fontSize:10,color:C.amber,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`,whiteSpace:"nowrap"}},r.cost),
+              React.createElement('td',{style:{fontSize:10,color:C.muted,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`,maxWidth:320,lineHeight:1.5}},r.method),
+              React.createElement('td',{style:{fontSize:11,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`}},r.quality)
+            ))
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── TAB 6: CMO PLAYBOOK ──────────────────────────────────────────────────────
+function TabPlaybook(){
+  const phases=[
+    {phase:"Month 1",title:"Build the Pipeline",goal:"First 5 paying clients",kpi:"$5K MRR",color:C.teal,steps:[
+      "Record the 60-second demo video (use the Mantra AI video tool)",
+      "Publish demo + book link to all social profiles",
+      "Build a list of 100 target practices using Google Maps + LinkedIn",
+      "Run 20 outreach sequences (cold email + LinkedIn) — use Outreach Generator above",
+      "Run 10 strategy calls — close 5 at $997/mo starter",
+      "Activate 2 partner relationships (1 Allergan rep, 1 dental supplier rep)",
+      "Post 3x/week on LinkedIn — use Content Engine above",
+      "Launch Facebook/Instagram retargeting — $500 test budget"
+    ]},
+    {phase:"Month 2",title:"Prove & Amplify",goal:"15 clients + first case study",kpi:"$18K MRR",color:C.blue,steps:[
+      "Document 2-3 client results with real numbers → publish as case studies",
+      "Expand outreach to 50 new targets/week",
+      "Upgrade winning FB/IG ads — scale to $1,500/month spend",
+      "Launch LinkedIn paid campaigns targeting practice owners",
+      "Activate 5 partner relationships — build referral pipeline",
+      "Host first webinar: 'The $47K Hiding in Your Practice'",
+      "Apply to Jane App + Mindbody partner directories",
+      "Start referral program: 1 free month per referral from existing clients"
+    ]},
+    {phase:"Month 3",title:"Scale the Machine",goal:"25+ clients + channel revenue",kpi:"$30K MRR",color:C.purple,steps:[
+      "Hire first Client Success Manager (or contractor)",
+      "Upgrade first clients to Growth tier ($2,497/mo) as Module 2 launches",
+      "Run a 30-day sprint targeting DSOs and PE-backed med spa groups",
+      "Speak at 1 industry event (AmSpa, local dental association)",
+      "Launch affiliate program — dedicated landing page + tracking",
+      "Publish 'State of AI in Private Practice 2026' lead magnet",
+      "Begin outbound to PE-backed clinic groups (5-location+ targets)",
+      "Target: $25K+ MRR, 2 published case studies, 10 active partners"
+    ]},
+  ];
+
+  const metrics=[
+    {name:"Outreach Volume",target:"50 touches/week",tool:"Apollo.io + LinkedIn Sales Nav"},
+    {name:"Reply Rate",target:">8% cold email, >15% LinkedIn",tool:"Reply.io or Lemlist"},
+    {name:"Demo Booked Rate",target:">25% of replies",tool:"Calendly tracking"},
+    {name:"Demo-to-Close Rate",target:">40%",tool:"CRM (HubSpot Free)"},
+    {name:"MRR Growth",target:">20%/month",tool:"Stripe / Baremetrics"},
+    {name:"CAC (Customer Acquisition Cost)",target:"<$500",tool:"Spend ÷ Clients"},
+    {name:"LTV:CAC Ratio",target:">24:1",tool:"($997×12) ÷ CAC"},
+    {name:"Net Revenue Retention",target:">105%",tool:"Upgrades offset churn"},
+  ];
+
+  return React.createElement('div',null,
+    React.createElement('div',{style:{marginBottom:20}},
+      React.createElement('div',{style:{fontSize:20,fontWeight:800,marginBottom:4,letterSpacing:"-0.3px"}},"CMO Playbook — 90-Day GTM"),
+      React.createElement('div',{style:{fontSize:12,color:C.muted}},"Your complete go-to-market strategy: channels, tactics, metrics, and week-by-week execution.")
+    ),
+    React.createElement('div',{style:{marginBottom:24}},
+      React.createElement('div',{style:{fontSize:13,fontWeight:700,marginBottom:12,color:C.teal}},"🚀 90-Day Phase Plan"),
+      React.createElement('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+        phases.map((ph,i)=>React.createElement(Card,{key:i},
+          React.createElement('div',{style:{height:3,background:ph.color}}),
+          React.createElement(CardHdr,{title:`${ph.phase}: ${ph.title}`,sub:`Goal: ${ph.goal} · ${ph.kpi}`}),
+          React.createElement(CardBody,null,
+            React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:8}},
+              ph.steps.map((s,j)=>React.createElement('div',{key:j,style:{display:"flex",gap:8,padding:"6px 8px",background:C.card2,borderRadius:6,border:`1px solid ${C.borderB}`}},
+                React.createElement('div',{style:{color:ph.color,fontWeight:700,fontSize:11,flexShrink:0}},"→"),
+                React.createElement('div',{style:{fontSize:10,lineHeight:1.5}},s)
+              ))
+            )
+          )
+        ))
+      )
+    ),
+    React.createElement('div',{style:{marginBottom:24}},
+      React.createElement('div',{style:{fontSize:13,fontWeight:700,marginBottom:12,color:C.teal}},"📊 KPIs & Metrics to Track"},
+      React.createElement(Card,null,
+        React.createElement('table',{style:{width:"100%",borderCollapse:"collapse"}},
+          React.createElement('thead',null,React.createElement('tr',null,
+            ["Metric","Target","Tool"].map(h=>React.createElement('th',{key:h,style:{fontSize:9,fontWeight:700,letterSpacing:"0.5px",textTransform:"uppercase",color:C.muted,padding:"8px 14px",borderBottom:`1px solid ${C.borderB}`,textAlign:"left"}},h))
+          )),
+          React.createElement('tbody',null,
+            metrics.map((m,i)=>React.createElement('tr',{key:i},
+              React.createElement('td',{style:{fontSize:11,fontWeight:600,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`}},m.name),
+              React.createElement('td',{style:{fontFamily:"'DM Mono',monospace",fontSize:10,color:C.teal,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`}},m.target),
+              React.createElement('td',{style:{fontSize:10,color:C.muted,padding:"10px 14px",borderBottom:`1px solid rgba(255,255,255,0.04)`}},m.tool)
+            ))
+          )
+        )
+      )
+    ),
+    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}},
+      React.createElement(Card,null,
+        React.createElement(CardHdr,{title:"💰 Month 3 Revenue Model"}),
+        React.createElement(CardBody,null,
+          [{tier:"Starter ($997/mo)",clients:18,mrr:"$17,946"},{tier:"Growth ($2,497/mo)",clients:5,mrr:"$12,485"},{tier:"Scale ($4,997/mo)",clients:2,mrr:"$9,994"}]
+          .map((r,i)=>React.createElement('div',{key:i,style:{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:i<2?`1px solid ${C.borderB}`:"none"}},
+            React.createElement('div',null,
+              React.createElement('div',{style:{fontSize:11,fontWeight:600}},r.tier),
+              React.createElement('div',{style:{fontSize:9,color:C.muted}},r.clients+" clients")
+            ),
+            React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:12,color:C.green}},r.mrr)
+          )),
+          React.createElement('div',{style:{marginTop:12,padding:"10px 12px",background:"rgba(45,212,200,0.06)",border:`1px solid ${C.border}`,borderRadius:8,display:"flex",justifyContent:"space-between"}},
+            React.createElement('div',{style:{fontSize:12,fontWeight:700}},"Total MRR"),
+            React.createElement('div',{style:{fontFamily:"'DM Mono',monospace",fontSize:16,background:C.gradH,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}),"$40,425"
+          )
+        )
+      ),
+      React.createElement(Card,null,
+        React.createElement(CardHdr,{title:"⚡ Quick Wins (This Week)"}),
+        React.createElement(CardBody,null,
+          [{action:"Post the 60-sec demo video on LinkedIn",impact:"High",time:"Today"},
+           {action:"DM 20 med spa Instagram accounts",impact:"High",time:"Today"},
+           {action:"Email 3 Allergan reps with partner pitch",impact:"Very High",time:"Day 2"},
+           {action:"Add 'Book a Free Call' link to all bios",impact:"Medium",time:"Day 1"},
+           {action:"Join 3 med spa Facebook groups",impact:"Medium",time:"Day 1"},
+           {action:"Set up Apollo.io free trial, build 100-lead list",impact:"High",time:"Day 3"},
+          ].map((a,i)=>React.createElement('div',{key:i,style:{display:"flex",gap:10,padding:"7px 0",borderBottom:i<5?`1px solid ${C.borderB}`:"none",alignItems:"center"}},
+            React.createElement('div',{style:{fontSize:9,fontWeight:700,color:a.impact==="Very High"?C.green:a.impact==="High"?C.teal:C.muted,whiteSpace:"nowrap",width:60}},a.impact),
+            React.createElement('div',{style:{flex:1,fontSize:10}},a.action),
+            React.createElement('div',{style:{fontSize:9,color:C.muted,whiteSpace:"nowrap"}},a.time)
+          ))
+        )
+      )
+    )
+  );
+}
+
+// ── MAIN APP ─────────────────────────────────────────────────────────────────
+const TABS=[
+  {id:"outreach",label:"Outreach Generator",emoji:"📧"},
+  {id:"adcopy",label:"Ad Copy",emoji:"📱"},
+  {id:"content",label:"Content Engine",emoji:"✍️"},
+  {id:"partners",label:"Partners",emoji:"🤝"},
+  {id:"intelligence",label:"Lead Intel",emoji:"🎯"},
+  {id:"playbook",label:"CMO Playbook",emoji:"🚀"},
+];
+
+function App(){
+  const[tab,setTab]=useState("outreach");
+
+  function renderTab(){
+    switch(tab){
+      case"outreach": return React.createElement(TabOutreach);
+      case"adcopy":   return React.createElement(TabAdCopy);
+      case"content":  return React.createElement(TabContent);
+      case"partners": return React.createElement(TabPartners);
+      case"intelligence": return React.createElement(TabIntelligence);
+      case"playbook": return React.createElement(TabPlaybook);
+      default: return React.createElement(TabOutreach);
+    }
+  }
+
+  return React.createElement('div',{style:{minHeight:"100vh",background:C.bg}},
+    // HEADER
+    React.createElement('header',{style:{background:C.bg2,borderBottom:`1px solid ${C.borderB}`,padding:"0 24px",position:"sticky",top:0,zIndex:50}},
+      React.createElement('div',{style:{maxWidth:1200,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:56}},
+        React.createElement('div',{style:{display:"flex",alignItems:"center",gap:10}},
+          React.createElement(Logo,{size:30}),
+          React.createElement('div',null,
+            React.createElement('div',{style:{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,fontWeight:800,letterSpacing:"1px",background:C.gradH,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}),"MANTRA AI",
+            React.createElement('div',{style:{fontSize:9,color:C.muted,letterSpacing:"1px"}}),"Lead Generation Command Center"
+          )
+        ),
+        React.createElement('div',{style:{display:"flex",alignItems:"center",gap:10}},
+          React.createElement('a',{href:SITE,target:"_blank",rel:"noopener noreferrer",style:{fontSize:10,color:C.muted,textDecoration:"none"}},SITE),
+          React.createElement('a',{href:BOOKING,target:"_blank",rel:"noopener noreferrer",style:{display:"flex",alignItems:"center",gap:5,background:C.grad,color:"#fff",borderRadius:7,padding:"7px 14px",fontSize:11,fontWeight:700,textDecoration:"none",boxShadow:"0 3px 12px rgba(45,212,200,0.3)"}},
+            "🗓 Book Strategy Call"
+          )
+        )
+      )
+    ),
+    // TAB BAR
+    React.createElement('div',{style:{background:C.bg2,borderBottom:`1px solid ${C.borderB}`,overflowX:"auto"}},
+      React.createElement('div',{style:{maxWidth:1200,margin:"0 auto",display:"flex",gap:0,padding:"0 24px"}},
+        TABS.map(t=>React.createElement('button',{
+          key:t.id,
+          onClick:()=>setTab(t.id),
+          style:{display:"flex",alignItems:"center",gap:6,padding:"14px 18px",border:"none",borderBottom:tab===t.id?`2px solid ${C.teal}`:"2px solid transparent",background:"transparent",color:tab===t.id?C.white:C.muted,fontSize:12,fontWeight:tab===t.id?700:500,cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",whiteSpace:"nowrap",transition:"all 0.15s"}},
+          React.createElement('span',null,t.emoji)," ",t.label
+        ))
+      )
+    ),
+    // CONTENT
+    React.createElement('main',{style:{maxWidth:1200,margin:"0 auto",padding:"24px 24px 60px"}},
+      renderTab()
+    ),
+    // FOOTER
+    React.createElement('footer',{style:{textAlign:"center",padding:"20px",borderTop:`1px solid ${C.borderB}`,color:C.muted,fontSize:11,letterSpacing:"0.3px"}},
+      React.createElement('span',{style:{background:C.gradH,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",fontWeight:700}},"Mantra AI")," · Patient Flywheel System · Lead Generation Command Center · ",
+      React.createElement('a',{href:BOOKING,target:"_blank",rel:"noopener noreferrer",style:{color:C.teal,textDecoration:"none",fontWeight:600}},"Book a Free Strategy Call")
+    )
+  );
+}
+
+const styleTag=document.createElement('style');
+styleTag.textContent=`
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+  select option{background:#0F2035;color:#F0F6FF;}
+`;
+document.head.appendChild(styleTag);
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
