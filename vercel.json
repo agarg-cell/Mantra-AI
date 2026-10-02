@@ -6,6 +6,10 @@
       "dest": "/api/$1"
     },
     {
+      "src": "/demo",
+      "dest": "/demo.html"
+    },
+    {
       "src": "/leadgen",
       "dest": "/leadgen.html"
     },
