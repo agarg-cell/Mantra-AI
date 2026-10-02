@@ -856,5 +856,163 @@ document.head.appendChild(styleEl);
 const root=ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(App));
 </script>
+
+<!-- ══════════════════════════════════════════
+     MAYA — AI SDR Chat Widget
+     Qualifies visitors → books strategy calls
+══════════════════════════════════════════ -->
+<script>
+(function(){
+  const BOOKING="https://calendly.com/ankur824/30min";
+  const TEAL="#2DD4C8",NAVY="#0B1825",CARD="#0F2035",BORDER="rgba(45,212,200,0.18)",MUTED="#4A6580",WHITE="#F0F6FF";
+  const GRAD="linear-gradient(135deg,#2DD4C8,#1E9BBF,#1565C0)";
+  const SYSTEM_PROMPT=`You are Maya, the AI Patient Flywheel Specialist for Mantra AI. You help healthcare practice owners (med spas, dental offices, specialty clinics) understand how Mantra AI can automate their revenue recovery, admin work, and revenue cycle.
+
+Your goals in order:
+1. Find out what TYPE of practice they run (med spa, dental, specialty clinic, other).
+2. Ask about their BIGGEST pain point: dormant leads/no-shows, admin overload, or billing/revenue.
+3. Share a specific, concrete ROI example relevant to their pain (e.g. "Med spas like yours typically recover $40K+ in the first 90 days just from dormant lead reactivation").
+4. Get their NAME and EMAIL so Ankur can follow up.
+5. Invite them to book a FREE 30-minute strategy call: ${BOOKING}
+
+Keep responses SHORT (2-4 sentences max). Be warm, confident, and specific. Use numbers. Never be salesy — be a trusted advisor.
+Pricing tiers (mention only if asked): Starter $997/mo, Growth $2,497/mo, Scale $4,997/mo.
+If they say they're not interested, thank them and offer to send a free ROI calculator.
+Always end responses with a clear next step or question.`;
+
+  let open=false, msgs=[], loading=false, leadCaptured=false;
+
+  function el(tag,attrs,children){
+    const e=document.createElement(tag);
+    Object.assign(e.style,attrs.style||{});
+    if(attrs.className) e.className=attrs.className;
+    if(attrs.onclick) e.onclick=attrs.onclick;
+    if(attrs.id) e.id=attrs.id;
+    if(attrs.placeholder) e.placeholder=attrs.placeholder;
+    if(attrs.type) e.type=attrs.type;
+    if(attrs.rows) e.rows=attrs.rows;
+    if(typeof children==='string') e.innerHTML=children;
+    else if(Array.isArray(children)) children.forEach(c=>c&&e.appendChild(c));
+    return e;
+  }
+
+  // ── Bubble button ──
+  const bubble=el('button',{style:{position:'fixed',bottom:'24px',right:'24px',width:'58px',height:'58px',borderRadius:'50%',background:GRAD,border:'none',cursor:'pointer',boxShadow:'0 6px 24px rgba(45,212,200,0.4)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',transition:'transform 0.2s'}},['💬']);
+  bubble.onmouseover=()=>bubble.style.transform='scale(1.1)';
+  bubble.onmouseout=()=>bubble.style.transform='scale(1)';
+
+  // ── Chat panel ──
+  const panel=el('div',{id:'maya-panel',style:{position:'fixed',bottom:'94px',right:'24px',width:'340px',maxHeight:'520px',background:NAVY,border:`1px solid ${BORDER}`,borderRadius:'16px',boxShadow:'0 16px 48px rgba(0,0,0,0.6)',zIndex:9998,display:'none',flexDirection:'column',overflow:'hidden'}});
+
+  const header=el('div',{style:{background:CARD,padding:'14px 16px',borderBottom:`1px solid ${BORDER}`,display:'flex',alignItems:'center',gap:10}});
+  const avatar=el('div',{style:{width:'34px',height:'34px',borderRadius:'50%',background:GRAD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px',flexShrink:'0'}},['🤖']);
+  const headerText=el('div',{style:{flex:'1'}});
+  const name=el('div',{style:{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:'13px',fontWeight:'700',color:WHITE}},'Maya · Mantra AI');
+  const status=el('div',{style:{fontSize:'10px',color:TEAL,fontWeight:'600'}},'● AI Patient Flywheel Specialist');
+  headerText.appendChild(name); headerText.appendChild(status);
+  const closeBtn=el('button',{style:{background:'none',border:'none',color:MUTED,fontSize:'18px',cursor:'pointer',padding:'0',lineHeight:'1'}},'×');
+  header.appendChild(avatar); header.appendChild(headerText); header.appendChild(closeBtn);
+
+  const msgsDiv=el('div',{id:'maya-msgs',style:{flex:'1',overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'10px',minHeight:'0',maxHeight:'340px'}});
+
+  const inputRow=el('div',{style:{padding:'10px 12px',borderTop:`1px solid ${BORDER}`,display:'flex',gap:'8px',alignItems:'flex-end'}});
+  const inp=el('textarea',{placeholder:'Type a message…',rows:1,style:{flex:'1',background:'rgba(255,255,255,0.05)',border:`1px solid ${BORDER}`,borderRadius:'8px',padding:'9px 12px',color:WHITE,fontSize:'13px',fontFamily:"'Plus Jakarta Sans',sans-serif",resize:'none',outline:'none',maxHeight:'80px'}});
+  const sendBtn=el('button',{style:{background:GRAD,border:'none',borderRadius:'8px',padding:'9px 12px',cursor:'pointer',color:'#fff',fontSize:'14px',fontWeight:'700',flexShrink:'0'}},['↑']);
+
+  inputRow.appendChild(inp); inputRow.appendChild(sendBtn);
+  panel.appendChild(header); panel.appendChild(msgsDiv); panel.appendChild(inputRow);
+
+  function addMsg(role,text){
+    const isUser=(role==='user');
+    const wrap=el('div',{style:{display:'flex',justifyContent:isUser?'flex-end':'flex-start'}});
+    const bubble2=el('div',{style:{maxWidth:'85%',padding:'9px 13px',borderRadius:isUser?'12px 12px 2px 12px':'12px 12px 12px 2px',background:isUser?GRAD:CARD,color:WHITE,fontSize:'12.5px',lineHeight:'1.55',fontFamily:"'Plus Jakarta Sans',sans-serif"}},text.replace(/\n/g,'<br>'));
+    wrap.appendChild(bubble2);
+    msgsDiv.appendChild(wrap);
+    msgsDiv.scrollTop=msgsDiv.scrollHeight;
+    return bubble2;
+  }
+
+  function showBookingButton(){
+    const wrap=el('div',{style:{display:'flex',justifyContent:'center',marginTop:'4px'}});
+    const btn=el('a',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:GRAD,color:'#fff',borderRadius:'8px',padding:'10px 18px',fontSize:'12px',fontWeight:'700',textDecoration:'none',boxShadow:'0 4px 14px rgba(45,212,200,0.35)',fontFamily:"'Plus Jakarta Sans',sans-serif'"}});
+    btn.href=BOOKING; btn.target='_blank'; btn.rel='noopener noreferrer';
+    btn.innerHTML='🗓 Book Free Strategy Call';
+    wrap.appendChild(btn);
+    msgsDiv.appendChild(wrap);
+    msgsDiv.scrollTop=msgsDiv.scrollHeight;
+  }
+
+  async function send(userText){
+    if(loading||!userText.trim()) return;
+    loading=true; sendBtn.disabled=true;
+    msgs.push({role:'user',content:userText});
+    addMsg('user',userText);
+    inp.value='';
+    const typingWrap=el('div',{style:{display:'flex',justifyContent:'flex-start'}});
+    const typing=el('div',{style:{padding:'9px 13px',borderRadius:'12px 12px 12px 2px',background:CARD,color:MUTED,fontSize:'12px',fontFamily:"'Plus Jakarta Sans',sans-serif"}},'Maya is typing…');
+    typingWrap.appendChild(typing); msgsDiv.appendChild(typingWrap); msgsDiv.scrollTop=msgsDiv.scrollHeight;
+
+    try{
+      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({prompt:userText,history:msgs.slice(0,-1),systemPrompt:SYSTEM_PROMPT})});
+      const reader=res.body.getReader(); const dec=new TextDecoder();
+      let buf='',full='';
+      typingWrap.remove();
+      const respBubble=addMsg('assistant','');
+      while(true){
+        const{done,value}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n'); buf=lines.pop()||'';
+        for(const line of lines){
+          if(line.startsWith('data: ')){const d=line.slice(6).trim();if(d==='[DONE]')continue;
+            try{const p=JSON.parse(d);const t=p?.delta?.text||'';if(t){full+=t;respBubble.innerHTML=full.replace(/\n/g,'<br>');msgsDiv.scrollTop=msgsDiv.scrollHeight;}}catch{}}
+        }
+      }
+      msgs.push({role:'assistant',content:full});
+      if(full.toLowerCase().includes('book')||full.toLowerCase().includes('calendly')||full.toLowerCase().includes('strategy call')){
+        showBookingButton();
+      }
+      if(!leadCaptured&&msgs.length>=6){
+        leadCaptured=true;
+        const capture=el('div',{style:{background:CARD,border:`1px solid ${BORDER}`,borderRadius:'10px',padding:'12px',marginTop:'4px'}});
+        capture.innerHTML=`<div style="font-size:11px;font-weight:700;color:${TEAL};margin-bottom:8px;font-family:'Plus Jakarta Sans',sans-serif">✦ Send me your free ROI report</div>`;
+        const emailInp=el('input',{type:'email',placeholder:'your@email.com',style:{width:'100%',background:'rgba(255,255,255,0.05)',border:`1px solid ${BORDER}`,borderRadius:'6px',padding:'7px 10px',color:WHITE,fontSize:'12px',fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',boxSizing:'border-box'}});
+        const capBtn=el('button',{style:{marginTop:'7px',width:'100%',background:GRAD,border:'none',borderRadius:'6px',padding:'8px',color:'#fff',fontSize:'11px',fontWeight:'700',cursor:'pointer',fontFamily:"'Plus Jakarta Sans',sans-serif"}},'Send My Report →');
+        capBtn.onclick=()=>{
+          const email=emailInp.value.trim();
+          if(email){
+            fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,source:'Maya Chat Widget',conversation:msgs.map(m=>m.role+': '+m.content).join('\n')})});
+            capture.innerHTML=`<div style="text-align:center;color:${TEAL};font-size:12px;font-family:'Plus Jakarta Sans',sans-serif">✓ Got it! Check your inbox shortly.</div>`;
+          }
+        };
+        capture.appendChild(emailInp); capture.appendChild(capBtn);
+        msgsDiv.appendChild(capture); msgsDiv.scrollTop=msgsDiv.scrollHeight;
+      }
+    }catch(e){typingWrap.remove();addMsg('assistant','Sorry, having a quick issue. Please try again or book a call directly: '+BOOKING);}
+    loading=false; sendBtn.disabled=false;
+  }
+
+  // ── Init greeting ──
+  function openChat(){
+    open=true; panel.style.display='flex'; bubble.innerHTML='✕';
+    if(msgs.length===0){
+      setTimeout(()=>{ addMsg('assistant',"Hi! I'm Maya, Mantra AI's AI Specialist 👋\n\nI help healthcare practices automate revenue recovery, reduce admin work, and optimize billing — all with AI.\n\nWhat type of practice do you run?"); },300);
+    }
+    inp.focus();
+  }
+  function closeChat(){ open=false; panel.style.display='none'; bubble.innerHTML='💬'; }
+
+  bubble.onclick=()=>open?closeChat():openChat();
+  closeBtn.onclick=closeChat;
+  sendBtn.onclick=()=>send(inp.value);
+  inp.onkeydown=(e)=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send(inp.value);} };
+
+  document.body.appendChild(bubble);
+  document.body.appendChild(panel);
+
+  // Auto-open after 8 seconds if visitor hasn't interacted
+  setTimeout(()=>{ if(!open&&msgs.length===0) openChat(); },8000);
+})();
+</script>
 </body>
 </html>
